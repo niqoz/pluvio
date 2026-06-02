@@ -772,21 +772,18 @@ installBtn.addEventListener('click',async()=>{
 window.addEventListener('appinstalled',()=>{ installBtn.hidden=true; });
 
 // --- Aide installation iOS (iPhone/iPad n'ont pas de bouton d'install auto) ---
+// window.navigator.standalone n'existe QUE sur iOS Safari -> detection fiable, sans UA sniffing.
 (function(){
-  const ua = navigator.userAgent || '';
-  const isAndroid = /Android/.test(ua);   // Android a un vrai bouton beforeinstallprompt
-  const isIOS = !isAndroid && (
-    /iPad|iPhone|iPod/.test(ua) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-  );
-  const standalone = window.navigator.standalone === true ||
-                     window.matchMedia('(display-mode: standalone)').matches;
-  if (isIOS && !standalone){
+  const isIOS = 'standalone' in window.navigator;
+  const installed = window.navigator.standalone === true ||
+                    window.matchMedia('(display-mode: standalone)').matches;
+  if (isIOS && !installed){
     const hint = document.getElementById('iosHint');
     hint.hidden = false;
-    const close = ()=>{ hint.hidden = true; };
+    const close = (e)=>{ e.preventDefault(); hint.hidden = true; };
+    // clic + touch sur le bouton, ET tap sur toute la barre pour faciliter la fermeture mobile
     document.getElementById('iosHintClose').addEventListener('click', close);
-    document.getElementById('iosHintClose').addEventListener('touchend', close);
+    hint.addEventListener('click', close);
   }
 })();
 </script>
