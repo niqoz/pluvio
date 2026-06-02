@@ -69,8 +69,9 @@ print("Mailles dans la grille : %d" % N, flush=True)
 # ---------- allocation des tableaux ----------
 M = N * SLOTS
 SUM = array('d', [0.0]) * M
+SUM_ETP = array('d', [0.0]) * M   # cumul ET0 (evapotranspiration de reference, colonne ETP)
 CNT = array('I', [0]) * M
-print("Tableaux alloues : %d slots (~%.0f Mo)" % (M, (M*12)/1e6), flush=True)
+print("Tableaux alloues : %d slots (~%.0f Mo)" % (M, (M*20)/1e6), flush=True)
 
 # ---------- streaming + agregation ----------
 t_start = time.time()
@@ -84,8 +85,8 @@ for url in URLS:
         for raw in gz:
             total += 1
             line = raw.decode("utf-8", "replace")
-            p = line.split(";", 5)
-            if len(p) < 5: continue
+            p = line.split(";", 13)   # jusqu'a la colonne ETP (index 12)
+            if len(p) < 13: continue
             i = maille_index.get(p[0] + "_" + p[1])
             if i is None: continue
             d = p[2]
@@ -94,10 +95,12 @@ for url in URLS:
             month = int(d[4:6])
             try:
                 precip = float(p[3]) + float(p[4])
+                etp = float(p[12])
             except ValueError:
                 continue
             base = i * SLOTS + (year - YEAR0) * 12 + (month - 1)
             SUM[base] += precip
+            SUM_ETP[base] += etp
             CNT[base] += 1
             if total % 10_000_000 == 0:
                 print("  ... %d M lignes (%.0fs)" % (total/1e6, time.time()-t0), flush=True)
@@ -116,6 +119,14 @@ def window_stats(cumuls, annees):
         else:
             moy.append(None); med.append(None); p10.append(None); p90.append(None)
     return {"moy": moy, "med": med, "p10": p10, "p90": p90}
+
+def window_etp(cumuls_etp, annees):
+    """Moyenne mensuelle de l'ET0 (mm) sur les annees de la fenetre."""
+    out = []
+    for m in range(1, 13):
+        serie = [cumuls_etp[m][a] for a in annees if a in cumuls_etp[m]]
+        out.append(r1(mean(serie)) if len(serie) >= MIN_ANNEES else None)
+    return out
 
 def annual_stats(cumul_annuel, annees):
     serie = [cumul_annuel[a] for a in annees if a in cumul_annuel]
@@ -137,6 +148,7 @@ resultat = {}
 for i in range(N):
     off = i * SLOTS
     cumuls = {m: {} for m in range(1, 13)}
+    cumuls_etp = {m: {} for m in range(1, 13)}
     annees_presentes = set()
     has_any = False
     for yi in range(NYEARS):
@@ -148,6 +160,7 @@ for i in range(N):
             has_any = True
             if c >= dim[(year, m)] - MAX_JOURS_MANQUANTS:
                 cumuls[m][year] = SUM[base]
+                cumuls_etp[m][year] = SUM_ETP[base]
                 annees_presentes.add(year)
     if not has_any:
         continue
@@ -168,8 +181,10 @@ for i in range(N):
         "lat": mk["lat"], "lon": mk["lon"], "altitude_m": None,
         "annees_disponibles": [toutes[0], toutes[-1]],
         "fenetres": {
-            "ref_1995_2020": {**window_stats(cumuls, ref), **annual_stats(cumul_annuel, ref)},
-            "recente": {**window_stats(cumuls, recentes), **annual_stats(cumul_annuel, recentes)},
+            "ref_1995_2020": {**window_stats(cumuls, ref), **annual_stats(cumul_annuel, ref),
+                              "et0_moy": window_etp(cumuls_etp, ref)},
+            "recente": {**window_stats(cumuls, recentes), **annual_stats(cumul_annuel, recentes),
+                        "et0_moy": window_etp(cumuls_etp, recentes)},
         },
         "tendance_mm_decennie": tendance,
     }
