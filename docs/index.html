@@ -71,6 +71,19 @@
   #mapPanel{border-bottom:1px solid var(--line)}
   #map{height:280px;width:100%;background:#dde6ef}
   .maphint{font-size:11px;color:var(--muted);text-align:center;padding:7px 10px}
+  /* Aide installation iOS */
+  .ioshint{
+    position:fixed;left:50%;transform:translateX(-50%);bottom:12px;
+    width:calc(100% - 24px);max-width:406px;z-index:1000;
+    background:#1f2d3d;color:#fff;border-radius:14px;padding:12px 14px;
+    box-shadow:0 6px 24px rgba(0,0,0,.28);font-size:13px;line-height:1.45;
+    display:flex;gap:10px;align-items:flex-start;
+  }
+  .ioshint b{color:#9cc3f7}
+  .ioshint .x{
+    margin-left:auto;background:rgba(255,255,255,.15);border:none;color:#fff;
+    border-radius:8px;padding:4px 9px;font-size:13px;cursor:pointer;flex:none;
+  }
   /* Sélecteur période */
   .windows{display:flex;gap:6px;padding:14px 16px 4px}
   .windows button{
@@ -210,6 +223,11 @@
     <span class="mock-tag" id="dataTag">CHARGEMENT…</span><br>
     Source : Météo-France — données SAFRAN/SIM · Licence Ouverte 2.0
   </footer>
+</div>
+
+<div id="iosHint" class="ioshint" hidden>
+  <span>📲 Pour installer sur iPhone : touchez <b>Partager</b> (carré avec flèche ↑), puis <b>« Sur l'écran d'accueil »</b>. À faire dans <b>Safari</b>.</span>
+  <button id="iosHintClose" class="x" aria-label="Fermer">✕</button>
 </div>
 
 <script src="vendor/leaflet/leaflet.js"></script>
@@ -453,6 +471,20 @@ installBtn.addEventListener('click',async()=>{
   deferredPrompt=null; installBtn.hidden=true;
 });
 window.addEventListener('appinstalled',()=>{ installBtn.hidden=true; });
+
+// --- Aide installation iOS (iPhone/iPad n'ont pas de bouton d'install auto) ---
+(function(){
+  const ua = navigator.userAgent || '';
+  const isIOS = /iPad|iPhone|iPod/.test(ua) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const standalone = window.navigator.standalone === true ||
+                     window.matchMedia('(display-mode: standalone)').matches;
+  if (isIOS && !standalone){
+    const hint = document.getElementById('iosHint');
+    hint.hidden = false;
+    document.getElementById('iosHintClose').addEventListener('click', ()=>{ hint.hidden = true; });
+  }
+})();
 </script>
 </body>
 </html>
