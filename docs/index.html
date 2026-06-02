@@ -753,6 +753,8 @@ if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{
     navigator.serviceWorker.register('./sw.js').catch(()=>{});
   });
+  // Quand un nouveau SW prend le controle, recharger pour servir la version a jour.
+  navigator.serviceWorker.addEventListener('controllerchange', ()=> window.location.reload());
 }
 
 // --- PWA : bouton d'installation (Android/Chrome) ---
