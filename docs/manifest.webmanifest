@@ -1,0 +1,19 @@
+{
+  "name": "Pluvio RWH — Profil climatique de site",
+  "short_name": "Pluvio RWH",
+  "description": "Histogramme pluviométrique mensuel pour le dimensionnement de la récupération d'eaux pluviales. Données Météo-France SAFRAN.",
+  "lang": "fr",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1c5fc4",
+  "theme_color": "#2f80ed",
+  "categories": ["utilities", "weather"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

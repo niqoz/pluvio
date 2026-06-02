@@ -1,0 +1,13 @@
+# Donnees brutes et intermediaires (volumineuses, reproductibles via le pipeline)
+data/
+
+# Residu eventuel
+docs/ajaccio.json
+
+# Python
+__pycache__/
+*.pyc
+
+# Divers
+.DS_Store
+Thumbs.db

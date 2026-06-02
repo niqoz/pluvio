@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pluvio RWH — Profil climatique de site</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2f80ed">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pluvio RWH">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<style>
+  :root{
+    --bg:#eef3f8; --card:#ffffff; --ink:#1f2d3d; --muted:#6b7c93;
+    --bar:#2f80ed; --bar2:#9cc3f7; --band:rgba(47,128,237,.14);
+    --accent:#0b6e4f; --warn:#b9770e; --line:#e3eaf2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--bg); color:var(--ink);
+    display:flex; justify-content:center; padding:16px;
+  }
+  .phone{
+    width:100%; max-width:430px; background:var(--card);
+    border-radius:22px; overflow:hidden;
+    box-shadow:0 10px 40px rgba(31,45,61,.12);
+  }
+  /* En-tête */
+  header{
+    background:linear-gradient(135deg,#2f80ed,#1c5fc4);
+    color:#fff; padding:18px 18px 16px;
+  }
+  .title{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:700}
+  .title .drop{font-size:22px}
+  .subtitle{font-size:12.5px;opacity:.85;margin-top:3px}
+  .loc{
+    display:flex;align-items:center;gap:7px;margin-top:14px;
+    background:rgba(255,255,255,.15);border-radius:12px;padding:9px 12px;font-size:14px;
+  }
+  .loc .pin{font-size:15px}
+  .loc b{font-weight:700}
+  .loc small{opacity:.8;font-weight:400}
+  /* Selecteur ville + GPS */
+  .picker{display:flex;gap:7px;margin-top:14px}
+  .picker select{
+    flex:1;border:none;border-radius:12px;padding:10px 12px;font-size:14px;
+    background:rgba(255,255,255,.92);color:var(--ink);font-weight:600;
+    -webkit-appearance:none;appearance:none;cursor:pointer;
+  }
+  .picker button{
+    border:none;border-radius:12px;padding:10px 12px;font-size:13px;font-weight:700;
+    background:rgba(255,255,255,.2);color:#fff;cursor:pointer;white-space:nowrap;
+  }
+  .picker button:active{background:rgba(255,255,255,.35)}
+  .install{
+    margin-top:10px;width:100%;border:none;border-radius:12px;padding:11px;
+    background:#fff;color:var(--bar);font-size:13.5px;font-weight:700;cursor:pointer;
+  }
+  .install:active{background:#eaf2fe}
+  /* Bascule + panneau carte */
+  .mapToggle{
+    margin-top:8px;width:100%;border:none;border-radius:12px;padding:10px;
+    background:rgba(255,255,255,.2);color:#fff;font-size:13px;font-weight:700;cursor:pointer;
+  }
+  .mapToggle:active{background:rgba(255,255,255,.35)}
+  #mapPanel{border-bottom:1px solid var(--line)}
+  #map{height:280px;width:100%;background:#dde6ef}
+  .maphint{font-size:11px;color:var(--muted);text-align:center;padding:7px 10px}
+  /* Sélecteur période */
+  .windows{display:flex;gap:6px;padding:14px 16px 4px}
+  .windows button{
+    flex:1;border:1px solid var(--line);background:#f6f9fc;color:var(--muted);
+    font-size:11.5px;font-weight:600;padding:9px 4px;border-radius:10px;cursor:pointer;
+    line-height:1.25;transition:.15s;
+  }
+  .windows button .big{display:block;font-size:13px;color:var(--ink)}
+  .windows button.active{
+    background:#eaf2fe;border-color:var(--bar);color:var(--bar);
+  }
+  .windows button.active .big{color:var(--bar)}
+  .win-note{font-size:11px;color:var(--muted);padding:2px 18px 0;text-align:center}
+  /* Graphe */
+  .chart-wrap{padding:14px 14px 4px}
+  .chart{
+    position:relative;height:220px;display:flex;align-items:flex-end;
+    gap:5px;border-left:1px solid var(--line);border-bottom:1px solid var(--line);
+    padding-left:4px;
+  }
+  .ygrid{position:absolute;left:0;right:0;height:1px;background:var(--line);z-index:0}
+  .ylabel{position:absolute;left:-2px;transform:translateY(-50%);
+    font-size:9px;color:var(--muted);background:var(--card);padding:0 2px}
+  .col{position:relative;flex:1;height:100%;display:flex;align-items:flex-end;z-index:1}
+  .band{position:absolute;left:18%;right:18%;background:var(--band);border-radius:3px}
+  .bar{
+    position:relative;width:100%;
+    background:linear-gradient(180deg,var(--bar),#2566c4);
+    border-radius:4px 4px 0 0;transition:height .4s ease;
+  }
+  .bar .val{
+    position:absolute;top:-15px;left:50%;transform:translateX(-50%);
+    font-size:8.5px;color:var(--muted);white-space:nowrap;
+  }
+  .xlabels{display:flex;gap:5px;padding:6px 0 0 4px}
+  .xlabels span{flex:1;text-align:center;font-size:9.5px;color:var(--muted)}
+  /* Légende */
+  .legend{display:flex;gap:16px;justify-content:center;padding:8px 0 2px;font-size:11px;color:var(--muted)}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  /* Bandeau récap */
+  .recap{padding:12px 16px 4px}
+  .recap-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stat{background:#f6f9fc;border-radius:12px;padding:11px 12px}
+  .stat .k{font-size:10.5px;color:var(--muted);display:block}
+  .stat .v{font-size:19px;font-weight:700;margin-top:2px}
+  .stat .v small{font-size:11px;font-weight:600;color:var(--muted)}
+  .stat.wide{margin-bottom:10px}
+  .stat.dry .v{color:var(--warn)}
+  .stat.wet .v{color:var(--bar)}
+  .meta{padding:12px 16px 4px;font-size:11.5px;color:var(--muted);line-height:1.6}
+  .meta .row{display:flex;justify-content:space-between;border-bottom:1px dashed var(--line);padding:3px 0}
+  .meta .row b{color:var(--ink);font-weight:600}
+  /* Réserves */
+  .warn-box{
+    margin:12px 16px;background:#fff8ec;border:1px solid #f3e2c0;border-radius:12px;
+    padding:11px 12px;font-size:11px;color:#7a5a14;line-height:1.5;
+  }
+  .warn-box b{display:block;margin-bottom:3px;color:var(--warn)}
+  footer{padding:10px 16px 18px;font-size:9.5px;color:#9aa9bd;text-align:center;line-height:1.5}
+  .mock-tag{
+    display:inline-block;background:#ffe0e0;color:#c0392b;font-size:9px;font-weight:700;
+    padding:2px 7px;border-radius:6px;letter-spacing:.5px;margin-bottom:6px;
+  }
+</style>
+</head>
+<body>
+<div class="phone">
+  <header>
+    <div class="title"><span class="drop">💧</span> Profil pluviométrique</div>
+    <div class="subtitle">Aide au dimensionnement récupération d'eau de pluie</div>
+    <div class="picker">
+      <select id="ville"></select>
+      <button id="gpsBtn">📍 Ma position</button>
+    </div>
+    <div class="loc" id="locInfo">
+      <span class="pin">📍</span><span>Chargement…</span>
+    </div>
+    <button id="installBtn" class="install" hidden>⬇️ Installer l'appli sur l'écran d'accueil</button>
+    <button id="mapBtn" class="mapToggle">🗺️ Choisir le point sur une carte</button>
+  </header>
+
+  <div id="mapPanel" hidden>
+    <div id="map"></div>
+    <div class="maphint">Touchez la carte pour choisir un point (nécessite une connexion)</div>
+  </div>
+
+  <div class="windows" id="windows">
+    <button data-w="ref" class="active"><span class="big">1995→2020</span>Période de référence</button>
+    <button data-w="recente"><span class="big">15 dern. ans</span>Climat récent</button>
+  </div>
+  <div class="win-note" id="winNote"></div>
+
+  <div class="chart-wrap">
+    <div class="chart" id="chart"></div>
+    <div class="xlabels">
+      <span>J</span><span>F</span><span>M</span><span>A</span><span>M</span><span>J</span>
+      <span>J</span><span>A</span><span>S</span><span>O</span><span>N</span><span>D</span>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--bar)"></i>Pluie moyenne (mm)</span>
+      <span><i style="background:var(--band)"></i>Année sèche → humide</span>
+    </div>
+  </div>
+
+  <div class="recap">
+    <div class="stat wide">
+      <span class="k">Pluie totale / an (moyenne)</span>
+      <span class="v" id="annuel">— <small>mm</small></span>
+    </div>
+    <div class="recap-grid">
+      <div class="stat dry">
+        <span class="k">Année sèche (1 sur 10)</span>
+        <span class="v" id="seche">— <small>mm</small></span>
+      </div>
+      <div class="stat wet">
+        <span class="k">Année humide (1 sur 10)</span>
+        <span class="v" id="humide">— <small>mm</small></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="meta">
+    <div class="row"><span>Commune du carré</span><b id="communeLine">—</b></div>
+    <div class="row"><span>Carré météo utilisé</span><b id="mailleId">SAFRAN 8 km</b></div>
+    <div class="row"><span>Centre du carré</span><b id="mailleCoord">—</b></div>
+    <div class="row"><span>Période couverte</span><b id="periode">—</b></div>
+    <div class="row" style="border:none"><span>Source</span><b>Météo-France · SAFRAN/SIM</b></div>
+  </div>
+
+  <div class="warn-box">
+    <b>⚠ À garder en tête</b>
+    Le carré mesure 8 km : en relief marqué (Corse), la pluie réelle de votre toit
+    peut différer. C'est une moyenne longue durée très fiable, pas un pluviomètre sur site.
+  </div>
+
+  <footer>
+    <span class="mock-tag" id="dataTag">CHARGEMENT…</span><br>
+    Source : Météo-France — données SAFRAN/SIM · Licence Ouverte 2.0
+  </footer>
+</div>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script>
+// --- Donnees REELLES : produites par le pipeline (pipeline/aggregate.py) ---
+// Format : ajaccio.json = { maille, lat, lon, annees_disponibles:[a,b],
+//   fenetres:{ historique, ref_1995_2020, recente }, ... }
+// chaque fenetre = { moy[12], med[12], p10[12], p90[12], annuel_moyen, annee_seche_p10, n_annees }
+const WIN = { historique:"historique", ref:"ref_1995_2020", recente:"recente" };
+const NOTE = {
+  historique:"Toute la profondeur disponible — la plus stable statistiquement.",
+  ref:"Période de référence 1995-2020 (réglage par défaut).",
+  recente:"Les 15 dernières années — climat actuel."
+};
+let JEU = null;        // maille actuellement affichee (son objet de donnees)
+let currentWin = 'ref';// fenetre selectionnee
+let MAILLES = [];      // [{id, lat, lon, data}] pour la recherche du carre
+
+function pctFactory(ymax){ return v => (v/ymax*100); }
+
+function render(winKey){
+  if(!JEU) return;
+  const f = JEU.fenetres[WIN[winKey]];
+  const moy=f.moy, p10=f.p10, p90=f.p90;
+  // echelle verticale dynamique : arrondie au 50 superieur au-dessus du P90 max
+  const maxv = Math.max(...p90.filter(v=>v!=null), ...moy.filter(v=>v!=null), 10);
+  const YMAX = Math.ceil(maxv/50)*50;
+  const pct = pctFactory(YMAX);
+
+  const chart=document.getElementById('chart');
+  chart.innerHTML='';
+  for(let g=0; g<=YMAX; g+=50){
+    const line=document.createElement('div');
+    line.className='ygrid'; line.style.bottom=pct(g)+'%';
+    const lab=document.createElement('span');
+    lab.className='ylabel'; lab.style.bottom=pct(g)+'%'; lab.textContent=g;
+    chart.appendChild(line); chart.appendChild(lab);
+  }
+  moy.forEach((m,i)=>{
+    const col=document.createElement('div'); col.className='col';
+    if(p10[i]!=null && p90[i]!=null){
+      const band=document.createElement('div'); band.className='band';
+      band.style.bottom=pct(p10[i])+'%'; band.style.height=pct(p90[i]-p10[i])+'%';
+      col.appendChild(band);
+    }
+    if(m!=null){
+      const bar=document.createElement('div'); bar.className='bar';
+      bar.style.height=pct(m)+'%';
+      const val=document.createElement('div'); val.className='val';
+      val.textContent=Math.round(m);
+      bar.appendChild(val);
+      col.appendChild(bar);
+    }
+    chart.appendChild(col);
+  });
+  // recap chiffre
+  const setv=(id,v)=> document.getElementById(id).innerHTML =
+      (v==null?'—':v)+' <small>mm</small>';
+  setv('annuel', f.annuel_moyen);
+  setv('seche',  f.annee_seche_p10);
+  setv('humide', f.annee_humide_p90);
+  document.getElementById('winNote').textContent =
+      NOTE[winKey] + (f.n_annees? '  ('+f.n_annees+' années)' : '');
+  document.querySelectorAll('#windows button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.w===winKey);
+  });
+}
+
+document.getElementById('windows').addEventListener('click',e=>{
+  const btn=e.target.closest('button'); if(!btn) return;
+  currentWin = btn.dataset.w;
+  render(currentWin);
+});
+
+// --- Villes de test (lat, lon) ---
+const VILLES = {
+  "Ajaccio":[41.92,8.74], "Bastia":[42.70,9.45], "Nice":[43.70,7.27],
+  "Marseille":[43.30,5.37], "Montpellier":[43.61,3.88], "Perpignan":[42.70,2.90],
+  "Toulouse":[43.60,1.44], "Biarritz":[43.48,-1.56], "Bordeaux":[44.84,-0.58],
+  "Nantes":[47.22,-1.55], "Brest":[48.39,-4.49], "Paris":[48.85,2.35],
+  "Lille":[50.63,3.06], "Strasbourg":[48.58,7.75], "Lyon":[45.76,4.84],
+  "Clermont-Ferrand":[45.78,3.09], "Grenoble":[45.19,5.72],
+  "Briançon (montagne)":[44.90,6.64], "Chamonix (montagne)":[45.92,6.87]
+};
+
+function haversine(la1,lo1,la2,lo2){
+  const R=6371, r=Math.PI/180;
+  const dla=(la2-la1)*r, dlo=(lo2-lo1)*r;
+  const a=Math.sin(dla/2)**2 + Math.cos(la1*r)*Math.cos(la2*r)*Math.sin(dlo/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+
+// point GPS -> carre SAFRAN le plus proche. On privilegie les carres TERRESTRES
+// (= ayant une commune) : pres des cotes, le carre le plus proche peut etre un
+// carre maritime sans commune, peu pertinent pour un usage terrestre.
+function findMaille(lat, lon){
+  let best=null, bd=Infinity;          // meilleur carre avec commune
+  let bestAny=null, bdAny=Infinity;    // meilleur carre tous types (repli)
+  for(const m of MAILLES){
+    const d=haversine(lat,lon,m.lat,m.lon);
+    if(d<bdAny){ bdAny=d; bestAny=m; }
+    if(m.data.commune && d<bd){ bd=d; best=m; }
+  }
+  return best ? {maille:best, dist:bd} : {maille:bestAny, dist:bdAny};
+}
+
+function setLoc(titre, sub){
+  document.getElementById('locInfo').innerHTML =
+    '<span class="pin">📍</span><span><b>'+titre+'</b>'+
+    (sub ? ' <small>· '+sub+'</small>' : '')+'</span>';
+}
+
+// commune de la POSITION exacte (en ligne) ; null si hors-ligne/echec
+function reverseCommune(lat, lon){
+  const url='https://geo.api.gouv.fr/communes?lat='+lat+'&lon='+lon+'&fields=nom,departement';
+  return fetch(url).then(r=>r.json()).then(a=>{
+    if(a && a.length) return {nom:a[0].nom, dep:(a[0].departement||{}).nom||''};
+    return null;
+  }).catch(()=>null);
+}
+
+let reqSeq = 0;  // garde-fou anti-reponses obsoletes
+function selectPoint(lat, lon, label){
+  const {maille, dist} = findMaille(lat, lon);
+  if(!maille) return;
+  JEU = maille.data;
+  const comCarre = JEU.commune || '', depCarre = JEU.departement || '';
+  // bandeau : carre meteo (sa commune-centre + n° + distance)
+  document.getElementById('communeLine').textContent =
+    comCarre ? (comCarre + (depCarre ? ' ('+depCarre+')' : '')) : '—';
+  document.getElementById('mailleId').textContent = 'SAFRAN 8 km — '+maille.id;
+  document.getElementById('mailleCoord').textContent =
+    maille.lat.toFixed(3)+', '+maille.lon.toFixed(3)+'  ·  à '+dist.toFixed(1)+' km';
+  document.getElementById('periode').textContent =
+    JEU.annees_disponibles[0]+' → '+JEU.annees_disponibles[1];
+  // en-tete : commune de la POSITION. Provisoire = commune du carre / libelle,
+  // puis affinee en ligne avec les coordonnees exactes.
+  setLoc(comCarre || label, comCarre ? depCarre : (lat.toFixed(3)+', '+lon.toFixed(3)));
+  const myReq = ++reqSeq;
+  reverseCommune(lat, lon).then(res=>{
+    if(res && myReq === reqSeq) setLoc(res.nom, res.dep);
+  });
+  lastLat = lat; lastLon = lon;
+  if (map) updateMapMarker(lat, lon);
+  render(currentWin);
+}
+
+// menu deroulant des villes
+const sel=document.getElementById('ville');
+Object.keys(VILLES).forEach(name=>{
+  const o=document.createElement('option'); o.value=name; o.textContent=name; sel.appendChild(o);
+});
+sel.addEventListener('change',()=>{
+  const [la,lo]=VILLES[sel.value]; selectPoint(la,lo,sel.value);
+});
+
+// bouton GPS (fonctionne via localhost = contexte securise)
+document.getElementById('gpsBtn').addEventListener('click',()=>{
+  if(!navigator.geolocation){ alert("GPS non disponible sur ce navigateur."); return; }
+  navigator.geolocation.getCurrentPosition(
+    p=>{ sel.selectedIndex=-1; selectPoint(p.coords.latitude, p.coords.longitude, "Ma position"); },
+    e=>alert("Position refusée ou indisponible ("+e.message+")."),
+    {enableHighAccuracy:true, timeout:10000}
+  );
+});
+
+// chargement du jeu France entiere
+document.getElementById('locInfo').innerHTML =
+  '<span class="pin">⏳</span><span>Chargement des 9 892 carrés…</span>';
+fetch('./normales_france.json').then(r=>r.json()).then(data=>{
+  MAILLES = Object.entries(data).map(([id,d])=>({id, lat:d.lat, lon:d.lon, data:d}));
+  const nCom = MAILLES.filter(m=>m.data.commune).length;
+  const tag=document.getElementById('dataTag');
+  tag.textContent='SAFRAN — '+MAILLES.length+' carrés · '+nCom+' communes';
+  tag.style.background = nCom>0 ? '#d8f5e3' : '#ffe0e0';
+  tag.style.color = nCom>0 ? '#0b6e4f' : '#c0392b';
+  sel.value="Ajaccio";
+  selectPoint(VILLES["Ajaccio"][0], VILLES["Ajaccio"][1], "Ajaccio");
+}).catch(e=>{
+  document.getElementById('locInfo').innerHTML =
+    '<span class="pin">⚠️</span><span>Erreur de chargement ('+e+')</span>';
+});
+
+// --- Carte interactive (Leaflet) — mode complementaire, fond de carte en ligne ---
+let map = null, marker = null, lastLat = null, lastLon = null;
+const mapPanel = document.getElementById('mapPanel');
+const mapBtn = document.getElementById('mapBtn');
+
+function ensureMap(){
+  if (map) return;
+  map = L.map('map', {zoomControl:true}).setView([lastLat||46.6, lastLon||2.5], lastLat?11:5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18, attribution: '© OpenStreetMap'
+  }).addTo(map);
+  map.on('click', (e)=>{
+    sel.selectedIndex = -1;
+    selectPoint(e.latlng.lat, e.latlng.lng, 'Point sur carte');
+  });
+}
+
+function updateMapMarker(lat, lon){
+  if (!map) return;
+  if (!marker){
+    marker = L.circleMarker([lat,lon], {radius:8, color:'#1c5fc4', weight:2,
+      fillColor:'#2f80ed', fillOpacity:0.6}).addTo(map);
+  } else {
+    marker.setLatLng([lat,lon]);
+  }
+}
+
+mapBtn.addEventListener('click', ()=>{
+  const show = mapPanel.hidden;
+  mapPanel.hidden = !show;
+  mapBtn.textContent = show ? '🗺️ Masquer la carte' : '🗺️ Choisir le point sur une carte';
+  if (show){
+    ensureMap();
+    setTimeout(()=>{
+      map.invalidateSize();
+      if (lastLat!=null){ map.setView([lastLat,lastLon], 11); updateMapMarker(lastLat,lastLon); }
+    }, 60);
+  }
+});
+
+// --- PWA : service worker (cache hors-ligne) ---
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  });
+}
+
+// --- PWA : bouton d'installation (Android/Chrome) ---
+let deferredPrompt=null;
+const installBtn=document.getElementById('installBtn');
+window.addEventListener('beforeinstallprompt',(e)=>{
+  e.preventDefault(); deferredPrompt=e; installBtn.hidden=false;
+});
+installBtn.addEventListener('click',async()=>{
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt=null; installBtn.hidden=true;
+});
+window.addEventListener('appinstalled',()=>{ installBtn.hidden=true; });
+</script>
+</body>
+</html>
