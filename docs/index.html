@@ -774,14 +774,19 @@ window.addEventListener('appinstalled',()=>{ installBtn.hidden=true; });
 // --- Aide installation iOS (iPhone/iPad n'ont pas de bouton d'install auto) ---
 (function(){
   const ua = navigator.userAgent || '';
-  const isIOS = /iPad|iPhone|iPod/.test(ua) ||
-                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isAndroid = /Android/.test(ua);   // Android a un vrai bouton beforeinstallprompt
+  const isIOS = !isAndroid && (
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  );
   const standalone = window.navigator.standalone === true ||
                      window.matchMedia('(display-mode: standalone)').matches;
   if (isIOS && !standalone){
     const hint = document.getElementById('iosHint');
     hint.hidden = false;
-    document.getElementById('iosHintClose').addEventListener('click', ()=>{ hint.hidden = true; });
+    const close = ()=>{ hint.hidden = true; };
+    document.getElementById('iosHintClose').addEventListener('click', close);
+    document.getElementById('iosHintClose').addEventListener('touchend', close);
   }
 })();
 </script>
