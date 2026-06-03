@@ -196,6 +196,15 @@
   .vol-reset:active{background:#eaf2fe}
   .cuve-sim-res{font-size:11.5px;color:var(--muted);line-height:1.5;margin:2px 0 4px}
   .cuve-sim-res b{color:var(--ink);font-weight:700}
+  .zone-row{display:flex;gap:8px;margin-bottom:6px;align-items:center}
+  .zone-row .z-surf{width:78px;flex:none}
+  .zone-row .z-type{flex:1;min-width:0;width:auto}
+  .zone-row .z-del{flex:none;width:38px;border:1px solid var(--line);border-radius:10px;
+    background:#f6f9fc;color:var(--muted);font-size:14px;cursor:pointer;padding:10px 0}
+  .zone-row .z-del:active{background:#fdeced}
+  .add-zone{width:100%;border:1px dashed #b9d4f5;border-radius:10px;padding:9px;
+    background:#f6f9fc;color:var(--bar);font-weight:600;font-size:12.5px;cursor:pointer}
+  .add-zone:active{background:#eaf2fe}
 </style>
 </head>
 <body>
@@ -290,16 +299,9 @@
         </div>
       </div>
       <div class="field">
-        <label>Surface arrosée (m²)</label>
-        <div class="row2">
-          <input id="cJardin" type="number" inputmode="numeric" min="0" step="1" value="100">
-          <select id="cPlante" title="Type de végétation">
-            <option value="gazon">Gazon / pelouse</option>
-            <option value="potager">Potager</option>
-            <option value="massifs">Massifs / arbustes</option>
-            <option value="verger">Verger / fruitiers</option>
-          </select>
-        </div>
+        <label>Surfaces arrosées, par culture (m²)</label>
+        <div id="cZones"></div>
+        <button id="cAddZone" type="button" class="add-zone">＋ Ajouter une culture</button>
       </div>
     </div>
 
@@ -358,10 +360,12 @@
     </div>
 
     <div class="cuve-note">
-      Méthode de Rippl (bilan mensuel). Besoin d'arrosage = évapotranspiration de la
-      plante (ET0 × coefficient cultural) moins la pluie tombée sur le jardin ; l'hiver
-      tombe naturellement à zéro (pause végétative). Le volume conseillé est celui qui
-      couvre l'arrosage en traversant la saison sèche.
+      Méthode de Rippl (bilan mensuel). Besoin d'arrosage = évapotranspiration de chaque
+      culture (ET0 × coefficient cultural) moins la pluie ; le besoin est calculé par
+      culture puis additionné. L'hiver tombe naturellement à zéro (pause végétative).
+      En zone méditerranéenne, choisir « Kikuyu / gazon chaud » : il consomme ~30 % de
+      moins qu'un gazon classique. Le volume conseillé couvre l'arrosage en traversant
+      la saison sèche.
     </div>
   </div><!-- /tabCuve -->
 
@@ -568,12 +572,26 @@ fetch('./normales_france.json').then(r=>r.json()).then(data=>{
 // ===================== Module dimensionnement de cuve =====================
 // Coefficients culturaux mensuels Kc (Jan..Dec), valeurs simplifiees (base FAO-56).
 // L'hiver est ~0 pour les cultures a pause vegetative -> besoin nul automatique.
+// gazon_froid = graminees C3 (fetuque, ray-grass : Nord/tempere) ; gazon_chaud = C4
+// (kikuyu, bermuda : Sud/Corse) ~30% plus econome. oliviers = persistant mediterraneen
+// tres resistant a la secheresse (olivier/figuier/agrumes), Kc ~0,6-0,65.
 const KC = {
-  gazon:   [0.5, 0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.9, 0.8, 0.7, 0.6, 0.5],
-  potager: [0,   0,   0.3, 0.5, 0.7, 0.9,  1.05,1.0, 0.7, 0.3, 0,   0  ],
-  massifs: [0.2, 0.2, 0.3, 0.4, 0.5, 0.5,  0.5, 0.5, 0.4, 0.3, 0.2, 0.2],
-  verger:  [0,   0,   0.4, 0.6, 0.7, 0.8,  0.85,0.8, 0.6, 0.4, 0,   0  ]
+  gazon_froid: [0.5, 0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.9, 0.8, 0.7, 0.6, 0.5],
+  gazon_chaud: [0.3, 0.3, 0.4, 0.5, 0.55,0.6,  0.65,0.65,0.6, 0.5, 0.4, 0.3],
+  potager:     [0,   0,   0.3, 0.5, 0.7, 0.9,  1.05,1.0, 0.7, 0.3, 0,   0  ],
+  massifs:     [0.2, 0.2, 0.3, 0.4, 0.5, 0.5,  0.5, 0.5, 0.4, 0.3, 0.2, 0.2],
+  verger:      [0,   0,   0.4, 0.6, 0.7, 0.8,  0.85,0.8, 0.6, 0.4, 0,   0  ],
+  oliviers:    [0.45,0.45,0.5, 0.55,0.6, 0.65, 0.65,0.65,0.6, 0.55,0.5, 0.45]
 };
+// Options du selecteur de culture (libelle affiche par type)
+const PLANTE_OPTIONS = [
+  ['gazon_froid', 'Gazon classique (ray-grass, fétuque)'],
+  ['gazon_chaud', 'Kikuyu / gazon chaud (Sud, Corse)'],
+  ['potager',     'Potager'],
+  ['massifs',     'Massifs / arbustes'],
+  ['verger',      'Verger / fruitiers irrigués'],
+  ['oliviers',    'Oliviers / figuiers / agrumes']
+];
 
 // Simulation mensuelle d'une cuve de capacite cap (m3), en regime etabli.
 // collecte (trop-plein perdu) -> on sert le besoin du mois dans la limite du stock.
@@ -656,23 +674,27 @@ function renderCuve(){
   }
   const toit   = Math.max(0, +document.getElementById('cToit').value   || 0);
   const coef   = +document.getElementById('cMat').value;
-  const jardin = Math.max(0, +document.getElementById('cJardin').value || 0);
-  const kc     = KC[document.getElementById('cPlante').value];
+  // liste des cultures saisies : { surf (m2), kc[12] } -- une zone par ligne
+  const zones = lireZones();
   const et0 = f.et0_moy, moy = f.moy;
   // Annee seche = forme saisonniere moyenne mise a l'echelle du cumul annuel sec REEL
   // (et NON la somme des p10 mensuels, qui sur-estimerait la secheresse -- piege §10.7).
   const ratioSec = (f.annee_seche_p10 && f.annuel_moyen) ? f.annee_seche_p10 / f.annuel_moyen : 1;
   const pluieSec = moy.map(v => v==null ? 0 : v * ratioSec);
 
-  // construit apport (toit) et besoin (jardin) en m3 pour un scenario de pluie donne
+  // construit apport (toit) et besoin (somme des cultures) en m3 pour un scenario de pluie
+  // IMPORTANT : le net pluie est calcule PAR culture (Kc different) puis somme.
   function scen(pluie){
     const apport = [], besoin = [];
     for(let m=0; m<12; m++){
       const pl = (pluie[m]!=null) ? pluie[m] : 0;
       const e0 = (et0[m]!=null)   ? et0[m]   : 0;
       apport.push(pl * toit * coef / 1000);
-      const net = Math.max(0, e0*kc[m] - pl);   // mm a arroser apres la pluie sur le jardin
-      besoin.push(net * jardin / 1000);
+      let bm = 0;
+      for(const z of zones){
+        bm += Math.max(0, e0*z.kc[m] - pl) * z.surf / 1000;  // mm a arroser × surface
+      }
+      besoin.push(bm);
     }
     return {apport, besoin};
   }
@@ -739,6 +761,49 @@ function renderCuve(){
   renderFillChart(simulCuve(volAff, sSec.apport, sSec.besoin).niveaux, volAff);
 }
 
+// --- Gestion des zones de culture (surface + type, repetables) ---
+const zonesBox = document.getElementById('cZones');
+
+// options <option> du selecteur de culture (libelle par type)
+const optionsHTML = PLANTE_OPTIONS
+  .map(([v,l]) => '<option value="'+v+'">'+l+'</option>').join('');
+
+// cree une ligne de culture { surface, type } et l'ajoute a la liste
+function addZone(surf, type){
+  const row = document.createElement('div');
+  row.className = 'zone-row';
+  row.innerHTML =
+    '<input class="z-surf" type="number" inputmode="numeric" min="0" step="1" value="'+surf+'">'+
+    '<select class="z-type">'+optionsHTML+'</select>'+
+    '<button class="z-del" type="button" aria-label="Supprimer cette culture">✕</button>';
+  row.querySelector('.z-type').value = type;
+  zonesBox.appendChild(row);
+}
+
+// lit toutes les zones saisies -> [{ surf (m2), kc[12] }], en ignorant surface 0
+function lireZones(){
+  return [...zonesBox.querySelectorAll('.zone-row')].map(row => ({
+    surf: Math.max(0, +row.querySelector('.z-surf').value || 0),
+    kc:   KC[row.querySelector('.z-type').value]
+  })).filter(z => z.surf > 0 && z.kc);
+}
+
+// une culture par defaut au demarrage
+addZone(100, 'gazon_froid');
+
+// recalcul en direct quand on modifie une zone ; suppression (en gardant au moins une ligne)
+zonesBox.addEventListener('input', renderCuve);
+zonesBox.addEventListener('change', renderCuve);
+zonesBox.addEventListener('click', e=>{
+  const del = e.target.closest('.z-del'); if(!del) return;
+  if(zonesBox.querySelectorAll('.zone-row').length > 1) del.closest('.zone-row').remove();
+  renderCuve();
+});
+document.getElementById('cAddZone').addEventListener('click', ()=>{
+  addZone(50, 'potager');
+  renderCuve();
+});
+
 // bascule d'onglets Pluie / Cuve
 document.getElementById('tabs').addEventListener('click', e=>{
   const b = e.target.closest('button'); if(!b) return;
@@ -749,7 +814,7 @@ document.getElementById('tabs').addEventListener('click', e=>{
   if(t==='cuve') renderCuve();
 });
 // recalcul en direct quand on modifie une entree
-['cToit','cMat','cJardin','cPlante','cVolPerso'].forEach(id=>{
+['cToit','cMat','cVolPerso'].forEach(id=>{
   document.getElementById(id).addEventListener('input', renderCuve);
 });
 document.getElementById('cVolReset').addEventListener('click', ()=>{
