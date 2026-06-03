@@ -772,18 +772,17 @@ installBtn.addEventListener('click',async()=>{
 window.addEventListener('appinstalled',()=>{ installBtn.hidden=true; });
 
 // --- Aide installation iOS (iPhone/iPad n'ont pas de bouton d'install auto) ---
-// window.navigator.standalone n'existe QUE sur iOS Safari -> detection fiable, sans UA sniffing.
+// Double garde : UA iOS + propriété standalone (évite les faux positifs Android/Samsung).
 (function(){
-  const isIOS = 'standalone' in window.navigator;
-  const installed = window.navigator.standalone === true ||
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) && 'standalone' in navigator;
+  const installed = navigator.standalone === true ||
                     window.matchMedia('(display-mode: standalone)').matches;
   if (isIOS && !installed){
     const hint = document.getElementById('iosHint');
     hint.hidden = false;
-    const close = (e)=>{ e.preventDefault(); hint.hidden = true; };
-    // clic + touch sur le bouton, ET tap sur toute la barre pour faciliter la fermeture mobile
-    document.getElementById('iosHintClose').addEventListener('click', close);
-    hint.addEventListener('click', close);
+    document.getElementById('iosHintClose').addEventListener('click', function(){
+      hint.hidden = true;
+    });
   }
 })();
 </script>
