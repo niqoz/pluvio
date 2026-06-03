@@ -777,11 +777,13 @@ window.addEventListener('appinstalled',()=>{ installBtn.hidden=true; });
   const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) && 'standalone' in navigator;
   const installed = navigator.standalone === true ||
                     window.matchMedia('(display-mode: standalone)').matches;
-  if (isIOS && !installed){
+  const dismissed = localStorage.getItem('iosHintDismissed') === '1';
+  if (isIOS && !installed && !dismissed){
     const hint = document.getElementById('iosHint');
     hint.hidden = false;
     document.getElementById('iosHintClose').addEventListener('click', function(){
       hint.hidden = true;
+      try { localStorage.setItem('iosHintDismissed', '1'); } catch(e){}
     });
   }
 })();
