@@ -191,6 +191,11 @@
   .cuve-ctx .row{display:flex;justify-content:space-between;border-bottom:1px dashed var(--line);padding:3px 0}
   .cuve-ctx .row b{color:var(--ink);font-weight:600}
   .cuve-note{margin:6px 16px 2px;font-size:11px;color:var(--muted);line-height:1.5}
+  .vol-reset{flex:none;width:44px;border:1px solid var(--line);border-radius:10px;
+    background:#f6f9fc;font-size:17px;color:var(--muted);cursor:pointer}
+  .vol-reset:active{background:#eaf2fe}
+  .cuve-sim-res{font-size:11.5px;color:var(--muted);line-height:1.5;margin:2px 0 4px}
+  .cuve-sim-res b{color:var(--ink);font-weight:700}
 </style>
 </head>
 <body>
@@ -330,6 +335,17 @@
       <span id="cuveLimiteTxt"></span>
     </div>
 
+    <div class="cuve-form" style="padding:6px 16px 0">
+      <div class="field" style="margin-bottom:6px">
+        <label>Cuve conseillée trop grande ? Testez une autre capacité (m³)</label>
+        <div class="row2">
+          <input id="cVolPerso" type="number" inputmode="decimal" min="0" step="0.5" placeholder="conseillée">
+          <button id="cVolReset" type="button" class="vol-reset" title="Revenir à la cuve conseillée">↺</button>
+        </div>
+      </div>
+      <div class="cuve-sim-res" id="cVolPersoRes" hidden></div>
+    </div>
+
     <div class="chart-wrap">
       <div class="chart" id="cuveChart"></div>
       <div class="xlabels">
@@ -337,7 +353,7 @@
         <span>J</span><span>A</span><span>S</span><span>O</span><span>N</span><span>D</span>
       </div>
       <div class="legend">
-        <span><i style="background:var(--bar)"></i>Niveau de la cuve (m³) — année sèche</span>
+        <span><i style="background:var(--bar)"></i><span id="cuveLegend">Niveau de la cuve (m³) — année sèche</span></span>
       </div>
     </div>
 
@@ -698,8 +714,29 @@ function renderCuve(){
     sec.hidden = true; lim.hidden = true;   // la cuve conseillee tient deja l'annee seche
   }
 
-  // courbe : niveau de la cuve conseillee au fil de l'annee SECHE (montre l'etiage estival)
-  renderFillChart(simulCuve(reco, sSec.apport, sSec.besoin).niveaux, reco);
+  // Volume affiche sur la courbe : la cuve conseillee, OU une capacite saisie par l'utilisateur
+  // (cas ou la cuve conseillee ne rentre pas physiquement -> on visualise l'impact d'une plus petite).
+  const persoEl = document.getElementById('cVolPerso');
+  const volPerso = Math.max(0, +persoEl.value || 0);
+  persoEl.placeholder = 'conseillée : '+fmtVol(reco)+' m³';
+  const volAff = volPerso > 0 ? volPerso : reco;
+
+  const simRes = document.getElementById('cVolPersoRes');
+  const lg = document.getElementById('cuveLegend');
+  if(volPerso > 0){
+    const cAffNorm = simulCuve(volAff, sMoy.apport, sMoy.besoin).couverture;
+    const cAffSec  = simulCuve(volAff, sSec.apport, sSec.besoin).couverture;
+    simRes.hidden = false;
+    simRes.innerHTML = 'Une cuve de <b>'+fmtVol(volPerso)+' m³</b> couvre <b>'+Math.round(cAffNorm*100)+
+      ' %</b> de l’arrosage une année normale et <b>'+Math.round(cAffSec*100)+' %</b> une année sèche.';
+    lg.textContent = 'Niveau d’une cuve de '+fmtVol(volPerso)+' m³ — année sèche';
+  } else {
+    simRes.hidden = true;
+    lg.textContent = 'Niveau de la cuve conseillée (m³) — année sèche';
+  }
+
+  // courbe : niveau du volume affiche au fil de l'annee SECHE (montre l'etiage estival)
+  renderFillChart(simulCuve(volAff, sSec.apport, sSec.besoin).niveaux, volAff);
 }
 
 // bascule d'onglets Pluie / Cuve
@@ -712,8 +749,12 @@ document.getElementById('tabs').addEventListener('click', e=>{
   if(t==='cuve') renderCuve();
 });
 // recalcul en direct quand on modifie une entree
-['cToit','cMat','cJardin','cPlante'].forEach(id=>{
+['cToit','cMat','cJardin','cPlante','cVolPerso'].forEach(id=>{
   document.getElementById(id).addEventListener('input', renderCuve);
+});
+document.getElementById('cVolReset').addEventListener('click', ()=>{
+  document.getElementById('cVolPerso').value = '';
+  renderCuve();
 });
 
 // --- Carte interactive (Leaflet) — mode complementaire, fond de carte en ligne ---
