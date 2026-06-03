@@ -79,6 +79,8 @@
     box-shadow:0 6px 24px rgba(0,0,0,.28);font-size:13px;line-height:1.45;
     display:flex;gap:10px;align-items:flex-start;
   }
+  /* L'attribut hidden doit l'emporter sur display:flex (sinon impossible à masquer) */
+  .ioshint[hidden]{display:none}
   .ioshint b{color:#9cc3f7}
   .ioshint .x{
     margin-left:auto;background:rgba(255,255,255,.15);border:none;color:#fff;
