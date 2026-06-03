@@ -788,8 +788,8 @@ function lireZones(){
   })).filter(z => z.surf > 0 && z.kc);
 }
 
-// une culture par defaut au demarrage
-addZone(100, 'gazon_froid');
+// une culture par defaut au demarrage (kikuyu : cible principale Corse/Mediterranee)
+addZone(100, 'gazon_chaud');
 
 // recalcul en direct quand on modifie une zone ; suppression (en gardant au moins une ligne)
 zonesBox.addEventListener('input', renderCuve);
