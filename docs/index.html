@@ -382,8 +382,14 @@ function render(winKey){
   if(!JEU) return;
   const f = JEU.fenetres[WIN[winKey]];
   const moy=f.moy, p10=f.p10, p90=f.p90;
-  // echelle verticale dynamique : arrondie au 50 superieur au-dessus du P90 max
-  const maxv = Math.max(...p90.filter(v=>v!=null), ...moy.filter(v=>v!=null), 10);
+  // echelle verticale COMMUNE aux 2 fenetres (ref + recente) pour une comparaison visuelle fiable :
+  // on prend le P90/moy max sur toutes les fenetres affichees, arrondi au 50 superieur.
+  let maxv = 10;
+  ['ref','recente'].forEach(k=>{
+    const ff = JEU.fenetres[WIN[k]];
+    if(!ff) return;
+    maxv = Math.max(maxv, ...ff.p90.filter(v=>v!=null), ...ff.moy.filter(v=>v!=null));
+  });
   const YMAX = Math.ceil(maxv/50)*50;
   const pct = pctFactory(YMAX);
 
