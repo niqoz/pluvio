@@ -1,7 +1,6 @@
 # Pluvio RWH — Profil climatique de site
 
-Application web (PWA) pour la **récupération d'eaux pluviales** (RWH) en France métropolitaine et corse
-+ Deux outils :
+Application web (PWA) pour la **récupération d'eaux pluviales** (RWH) en France métropolitaine et Corse. Deux outils :
 
 - **Onglet Pluie** : histogramme des **cumuls mensuels de précipitations** (moyenne
   climatologique longue durée) pour n'importe quel point, avec année sèche/humide.
