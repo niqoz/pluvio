@@ -14,8 +14,9 @@
 
 ```
 pipeline/          Scripts Python de pré-calcul (one-shot)
-  build_france.py  SAFRAN -> data/out/normales_france.json  (streaming, ~5 min)
+  build_france.py  SAFRAN -> data/out/normales_france.json  (streaming, ~5 min ; pluie + ET0)
   add_communes.py  Ajoute commune/departement/insee à chaque maille (geo.api.gouv.fr, 24 threads)
+  merge_et0.py     Fusionne et0_moy[12] dans docs/ sans re-solliciter geo.api (préserve communes)
   aggregate.py     Agrégation Corse seule (test/validation)
   extract_corse.py Extraction streaming d'une zone (CSV intermédiaire)
   mailles_corse.py Identifie les 168 mailles de Corse
@@ -40,9 +41,10 @@ data/              Données brutes et intermédiaires (dans .gitignore, ~5 Go)
 
 - **Source** : `https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/REF_CC/SIM/`
 - **Fichiers** : `QUOT_SIM2_1990-1999.csv.gz`, `…2000-2009`, `…2010-2019`, `QUOT_SIM2_previous-2020-202604.csv.gz`
-- **Colonnes réelles** : `LAMBX;LAMBY;DATE;PRENEI;PRELIQ;T;…` — séparateur `;`, décimale **point**, DATE=YYYYMMDD.
+- **Colonnes réelles** (index 0-based) : `0 LAMBX ; 1 LAMBY ; 2 DATE ; 3 PRENEI ; 4 PRELIQ ; 5 T ; 6 FF ; 7 Q ; 8 DLI ; 9 SSI ; 10 HU ; 11 EVAP ; 12 ETP ; 13 PE ; …` — séparateur `;`, décimale **point**, DATE=YYYYMMDD.
   ⚠️ Les noms sont `PRELIQ`/`PRENEI` **sans** le suffixe `_Q` annoncé dans le cahier des charges.
-- **Pluie totale** = `PRELIQ + PRENEI` (pluie + neige).
+- **Pluie totale** = `PRELIQ + PRENEI` (pluie + neige), index 4 + 3.
+- **ET0** = `ETP` **index 12** (évapotranspiration potentielle Penman-Monteith). ⚠️ NE PAS confondre avec `EVAP` (ET réelle, index 11) ni `PE` (pluie efficace, index 13). Validé physiquement : pic estival ~160 mm/mois = comportement d'une ET *potentielle*.
 - **Grille** : `coordonnees_grille_safran_lambert-2-etendu.csv` — séparateur `;`, décimale **virgule**, colonnes `LAMBX (hm);LAMBY (hm);LAT_DG;LON_DG`. Pas d'altitude dans ce fichier.
 - **9 892 mailles**, France métropolitaine + Corse.
 - Maille cible Ajaccio : **`11320_16810`** (centre 41.939, 8.738, à 2,25 km du centre-ville).
@@ -58,6 +60,7 @@ Par maille (clé = `"LAMBX_LAMBY"`) :
   "annees_disponibles": [1990, 2026],
   "fenetres": {
     "ref_1995_2020": { "moy":[...], "med":[...], "p10":[...], "p90":[...],
+                       "et0_moy":[...],
                        "annuel_moyen": 771, "annee_seche_p10": 520,
                        "annee_humide_p90": 988, "n_annees": 26 },
     "recente":       { ... }
@@ -70,11 +73,23 @@ Par maille (clé = `"LAMBX_LAMBY"`) :
 
 ## Application (docs/)
 
+- **Deux onglets** : « Pluie » (histogramme des cumuls mensuels) et « Cuve » (dimensionnement RWH).
 - **findMaille** : plus proche voisin haversine, **privilégie les mailles avec commune** (évite les carrés maritimes près des côtes).
 - **Commune position** : appel `geo.api.gouv.fr/communes?lat=&lon=` au clic (en ligne) ; fallback offline = commune du carré embarquée.
-- **Service worker** : network-first. Incrémenter `const CACHE = "pluvio-rwh-vN"` à chaque mise à jour pour forcer le rechargement.
-- **Aide iOS** : bandeau automatique si iPhone/iPad non installé (pas de bouton d'install auto sur iOS — geste manuel Partager → Sur l'écran d'accueil dans Safari).
+- **Service worker** : network-first. Incrémenter `const CACHE = "pluvio-rwh-vN"` à chaque mise à jour pour forcer le rechargement (actuellement **v17**).
+- **Histogramme pluie** : échelle verticale **commune** aux 2 fenêtres (ref + récente) pour comparer sans illusion d'optique.
+- **Aide iOS** : bandeau auto si iPhone/iPad non installé. Détection = `/iP(hone|ad|od)/.test(UA) && 'standalone' in navigator` (double garde, sinon faux positifs Android). Fermeture mémorisée en `localStorage` (`iosHintDismissed`). ⚠️ Piège résolu : `.ioshint` avait `display:flex` qui écrasait l'attribut `hidden` → bandeau impossible à masquer ; corrigé par `.ioshint[hidden]{display:none}`. iPad récent non détecté (Safari se déclare « Macintosh »).
 - **Vérifier la version** : étiquette footer affiche `"N carrés · M communes"` ; 0 communes = ancien cache.
+
+### Onglet Cuve (module dimensionnement)
+
+- **Méthode** : bilan mensuel de Rippl. Apport toit = `pluie × surface × coef_ruissellement / 1000` (m³). Besoin = `max(0, ET0×Kc − pluie) × surface / 1000`, **calculé par culture puis additionné** (Kc différents → netting pluie par zone).
+- **Cultures multiples** : zones répétables (`#cZones`, fn `addZone`/`lireZones`), chacune surface + type. Bouton « ＋ Ajouter une culture », ✕ pour retirer (min. 1).
+- **Types Kc** (`const KC`) : `gazon_froid` (C3, pic 0,9), `gazon_chaud` (C4 kikuyu/bermuda, pic 0,65, **défaut** car cible Corse/Med), `potager` (pic 1,05), `massifs` (0,2-0,5), `verger` (pic 0,85), `oliviers` (persistant méditerranéen ~0,65).
+- **Année sèche** : `pluieSec = moy × (annee_seche_p10 / annuel_moyen)` — PAS la somme des p10 mensuels (piège §10.7).
+- **Volume conseillé** = plus petite cuve atteignant ~99 % de couverture année normale. Si la toiture ne suffit jamais → plateau `covMax` + bandeau « ⚠ Limité par la toiture » (une cuve plus grande resterait vide). ⚠️ Conséquence contre-intuitive : une toiture peu collectante (végétalisée 0,4) peut **réduire** le volume conseillé tout en **abaissant la couverture** → lire le trio volume + couverture % + bandeau, pas le volume seul.
+- **Tester une autre capacité** (`#cVolPerso`, bouton ↺) : saisir un volume réel → courbe de niveau + couvertures recalculées pour CE volume.
+- **Limites connues** (rapport de vérif, juin 2026) : cible 99 % → cuves démesurées en climat à été sec (stockage saisonnier ; ex. Ajaccio 100 m² toit + 100 m² gazon froid → 31,5 m³). Biais optimistes mineurs : pluie **brute** au lieu d'efficace (FAO), pas de rendement filtre ~0,9, ET0 non rehaussée en année sèche.
 
 ## Déploiement
 
@@ -85,22 +100,32 @@ Par maille (clé = `"LAMBX_LAMBY"`) :
 
 ## Régénérer les données (si nouvelles années SAFRAN disponibles)
 
+Cas simple (1er build complet) :
 ```bash
-python pipeline/build_france.py           # streaming ~5 min -> data/out/normales_france.json
+python pipeline/build_france.py           # streaming ~5 min -> data/out/normales_france.json (pluie + et0_moy)
 python pipeline/add_communes.py           # ~2 min -> ajoute commune/departement/insee
 cp data/out/normales_france.json docs/normales_france.json
 # Incrémenter CACHE dans docs/sw.js
 git add docs/ && git commit -m "Regénération données SAFRAN YYYY" && git push
 ```
 
+Cas « ajouter/rafraîchir l'ET0 sans re-solliciter geo.api.gouv.fr » (docs/ a déjà les communes) :
+```bash
+python pipeline/build_france.py           # produit data/out/ avec et0_moy (sans communes)
+python pipeline/merge_et0.py              # fusionne et0_moy[12] DANS docs/ en préservant les communes
+# Incrémenter CACHE dans docs/sw.js, puis commit/push
+```
+
 ## Évolutions prévues (hors V1, §9 du cahier des charges)
 
 - **Altitude des mailles** : absente du fichier grille, à récupérer (shapefile SIM ou MNT).
 - **APK Android** : via PWABuilder depuis l'URL Pages → autonomie totale indépendante du cache navigateur.
-- **Module dimensionnement de cuve** : surface toiture, coefficient de ruissellement, profil consommation → simulation Rippl → volume conseillé + taux de couverture.
 - **Onglet solaire/thermique** : irradiation SSI_Q, ETP, température T_Q (données déjà dans SAFRAN).
 - **Fallback hors-métropole** : Open-Meteo Historical (ERA5-Land) pour DOM/étranger.
 - **Nom définitif** : « Pluvio RWH » est provisoire.
+- **Affiner le module cuve** : pluie efficace + rendement filtre, cible de couverture réaliste (genou de courbe plutôt que 99 %), mode arrosage déficit/dormance.
+
+> ✅ **Fait** (initialement prévu §9) : module dimensionnement de cuve (onglet Cuve), avec cultures multiples et variétés méditerranéennes — voir section *Onglet Cuve* ci-dessus.
 
 ## User
 
