@@ -6,7 +6,7 @@
 <title>Italpluvio — Profilo pluviometrico</title>
 <!-- PWA -->
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#2f80ed">
+<meta name="theme-color" content="#009246">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -15,9 +15,9 @@
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 <style>
   :root{
-    --bg:#eef3f8; --card:#ffffff; --ink:#1f2d3d; --muted:#6b7c93;
-    --bar:#2f80ed; --bar2:#9cc3f7; --band:rgba(47,128,237,.14);
-    --accent:#0b6e4f; --warn:#b9770e; --line:#e3eaf2;
+    --bg:#eef7f2; --card:#ffffff; --ink:#1f2d3d; --muted:#6b7c93;
+    --bar:#009246; --bar2:#7dcca0; --band:rgba(0,146,70,.14);
+    --accent:#006d35; --warn:#b9770e; --line:#d8eee2;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{
@@ -32,7 +32,7 @@
   }
   /* En-tete */
   header{
-    background:linear-gradient(135deg,#2f80ed,#1c5fc4);
+    background:linear-gradient(135deg,#009246,#006d35);
     color:#fff; padding:18px 18px 16px; position:relative;
   }
   .title{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:700}
@@ -67,7 +67,7 @@
     margin-top:10px;width:100%;border:none;border-radius:12px;padding:11px;
     background:#fff;color:var(--bar);font-size:13.5px;font-weight:700;cursor:pointer;
   }
-  .install:active{background:#eaf2fe}
+  .install:active{background:#eaf7ee}
   .mapToggle{
     margin-top:8px;width:100%;border:none;border-radius:12px;padding:10px;
     background:rgba(255,255,255,.2);color:#fff;font-size:13px;font-weight:700;cursor:pointer;
@@ -84,7 +84,7 @@
     display:flex;gap:10px;align-items:flex-start;
   }
   .ioshint[hidden]{display:none}
-  .ioshint b{color:#9cc3f7}
+  .ioshint b{color:#7dcca0}
   .ioshint .x{
     margin-left:auto;background:rgba(255,255,255,.15);border:none;color:#fff;
     border-radius:8px;padding:4px 9px;font-size:13px;cursor:pointer;flex:none;
@@ -96,7 +96,7 @@
     line-height:1.25;transition:.15s;
   }
   .windows button .big{display:block;font-size:13px;color:var(--ink)}
-  .windows button.active{background:#eaf2fe;border-color:var(--bar);color:var(--bar)}
+  .windows button.active{background:#eaf7ee;border-color:var(--bar);color:var(--bar)}
   .windows button.active .big{color:var(--bar)}
   .win-note{font-size:11px;color:var(--muted);padding:2px 18px 0;text-align:center}
   .chart-wrap{padding:14px 14px 4px}
@@ -152,6 +152,7 @@
     border-bottom:2px solid transparent;
   }
   .tabs button.active{background:#fff;color:var(--bar);border-bottom-color:var(--bar)}
+  .tabs{border-bottom:1px solid var(--line)}
   .cuve-form{padding:14px 16px 4px}
   .field{margin-bottom:11px}
   .field label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px;font-weight:600}
@@ -163,7 +164,7 @@
   }
   .field input:focus,.field select:focus{outline:none;border-color:var(--bar);background:#fff}
   .cuve-res{padding:6px 16px 4px}
-  .reco-head{background:#eaf2fe;border:1px solid #cfe2fb;border-radius:12px;
+  .reco-head{background:#eaf7ee;border:1px solid #b8e6ce;border-radius:12px;
     padding:13px;text-align:center;margin-bottom:10px}
   .reco-head .k{font-size:11px;color:var(--muted);display:block}
   .reco-head .vol{font-size:30px;font-weight:800;color:var(--bar);margin:2px 0 1px}
@@ -171,7 +172,7 @@
   .reco-head .cov{font-size:11.5px;color:var(--muted)}
   .cuve-res .reco-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .reco{background:#f6f9fc;border-radius:12px;padding:11px;text-align:center}
-  .reco.moyen{border:1px solid #cfe2fb}
+  .reco.moyen{border:1px solid #b8e6ce}
   .reco.seche{border:1px solid #f3e2c0;background:#fff8ec}
   .reco .k{font-size:10.5px;color:var(--muted);display:block}
   .reco .pct{font-size:22px;font-weight:800;margin:2px 0 1px}
@@ -187,7 +188,7 @@
   .cuve-note{margin:6px 16px 2px;font-size:11px;color:var(--muted);line-height:1.5}
   .vol-reset{flex:none;width:44px;border:1px solid var(--line);border-radius:10px;
     background:#f6f9fc;font-size:17px;color:var(--muted);cursor:pointer}
-  .vol-reset:active{background:#eaf2fe}
+  .vol-reset:active{background:#eaf7ee}
   .cuve-sim-res{font-size:11.5px;color:var(--muted);line-height:1.5;margin:2px 0 4px}
   .cuve-sim-res b{color:var(--ink);font-weight:700}
   .zone-row{display:flex;gap:8px;margin-bottom:6px;align-items:center}
@@ -196,9 +197,9 @@
   .zone-row .z-del{flex:none;width:38px;border:1px solid var(--line);border-radius:10px;
     background:#f6f9fc;color:var(--muted);font-size:14px;cursor:pointer;padding:10px 0}
   .zone-row .z-del:active{background:#fdeced}
-  .add-zone{width:100%;border:1px dashed #b9d4f5;border-radius:10px;padding:9px;
+  .add-zone{width:100%;border:1px dashed #7dcca0;border-radius:10px;padding:9px;
     background:#f6f9fc;color:var(--bar);font-weight:600;font-size:12.5px;cursor:pointer}
-  .add-zone:active{background:#eaf2fe}
+  .add-zone:active{background:#eaf7ee}
 </style>
 </head>
 <body>
@@ -940,8 +941,8 @@ function ensureMap(){
 function updateMapMarker(lat, lon){
   if (!map) return;
   if (!marker){
-    marker = L.circleMarker([lat,lon], {radius:8, color:'#1c5fc4', weight:2,
-      fillColor:'#2f80ed', fillOpacity:0.6}).addTo(map);
+    marker = L.circleMarker([lat,lon], {radius:8, color:'#006d35', weight:2,
+      fillColor:'#009246', fillOpacity:0.6}).addTo(map);
   } else { marker.setLatLng([lat,lon]); }
 }
 mapBtn.addEventListener('click', ()=>{
