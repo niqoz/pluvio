@@ -900,7 +900,7 @@ function lireZones(){
     kc:   KC[row.querySelector('.z-type').value]
   })).filter(z => z.surf > 0 && z.kc);
 }
-addZone(100, 'gazon_chaud');
+addZone(100, 'potager');
 
 zonesBox.addEventListener('input', renderCuve);
 zonesBox.addEventListener('change', renderCuve);

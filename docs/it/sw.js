@@ -2,7 +2,7 @@
    Met en cache l'app shell ET les donnees (normales_italie.json) pour un
    fonctionnement hors-ligne. Strategie : reseau d'abord, cache en repli.
    Incrementer CACHE a chaque mise a jour du code ou des donnees. */
-const CACHE = "italpluvio-v3";
+const CACHE = "italpluvio-v4";
 const ASSETS = [
   "./",
   "./index.html",

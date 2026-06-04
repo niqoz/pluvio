@@ -2,7 +2,7 @@
    Met en cache l'app shell ET les donnees (normales_france.json) pour un
    fonctionnement 100% hors-ligne. Strategie : cache-first.
    Incrementer CACHE a chaque mise a jour du code ou des donnees. */
-const CACHE = "pluvio-rwh-v18";
+const CACHE = "pluvio-rwh-v19";
 const ASSETS = [
   "./",
   "./index.html",
