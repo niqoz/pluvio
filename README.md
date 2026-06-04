@@ -8,7 +8,7 @@ Application web (PWA) pour la **récupération d'eaux pluviales** (RWH) en Franc
   la surface de toit, du type de couverture et des surfaces arrosées par culture.
 
 ➡️ **France (Pluvio RWH) : https://niqoz.github.io/pluvio/**
-➡️ **Italie (Italpluvio) : https://niqoz.github.io/pluvio/it/** — interface FR / DE / IT
+➡️ **Italie (Italpluvio) : https://niqoz.github.io/italpluvio/** — interface FR / DE / IT
 
 ## Données
 
