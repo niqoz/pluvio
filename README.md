@@ -7,7 +7,8 @@ Application web (PWA) pour la **récupération d'eaux pluviales** (RWH) en Franc
 - **Onglet Cuve** : **dimensionnement d'une cuve d'arrosage** (méthode de Rippl) à partir de
   la surface de toit, du type de couverture et des surfaces arrosées par culture.
 
-➡️ **Application en ligne : https://niqoz.github.io/pluvio/**
+➡️ **France (Pluvio RWH) : https://niqoz.github.io/pluvio/**
+➡️ **Italie (Italpluvio) : https://niqoz.github.io/pluvio/it/** — interface FR / DE / IT
 
 ## Données
 
@@ -49,7 +50,9 @@ cp data/out/normales_france.json docs/normales_france.json
 
 ## Licences / attribution
 
-- Données : © Météo-France (SAFRAN/SIM, Licence Ouverte 2.0).
-- Communes : © geo.api.gouv.fr / découpage administratif (Etalab).
+- Données France : © Météo-France (SAFRAN/SIM, Licence Ouverte 2.0).
+- Données Italie : © Copernicus Climate Change Service (ERA5-Land, Licence Copernicus).
+- Communes France : © geo.api.gouv.fr / découpage administratif (Etalab).
+- Communes Italie : © OpenStreetMap contributors (Nominatim).
 - Fond de carte : © OpenStreetMap contributors.
 - Bibliothèque carte : Leaflet (BSD-2).
