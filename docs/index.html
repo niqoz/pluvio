@@ -195,6 +195,17 @@
     background:#f6f9fc;font-size:17px;color:var(--muted);cursor:pointer}
   .vol-reset:active{background:#eaf2fe}
   .cuve-sim-res{font-size:11.5px;color:var(--muted);line-height:1.5;margin:2px 0 4px}
+  .bar-tip{
+    display:none;position:absolute;bottom:calc(100% + 5px);left:50%;
+    transform:translateX(-50%);background:var(--ink);color:#fff;
+    font-size:10px;font-weight:700;padding:3px 6px;border-radius:6px;
+    white-space:nowrap;z-index:10;pointer-events:none;
+  }
+  .bar-tip::after{
+    content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
+    border:4px solid transparent;border-top-color:var(--ink);
+  }
+  .bar-tip.on{display:block}
   .cuve-sim-res b{color:var(--ink);font-weight:700}
   .zone-row{display:flex;gap:8px;margin-bottom:6px;align-items:center}
   .zone-row .z-surf{width:78px;flex:none}
@@ -653,8 +664,18 @@ function renderFillChart(niveaux, cap){
   niveaux.forEach(n=>{
     const col = document.createElement('div'); col.className='col';
     const bar = document.createElement('div'); bar.className='bar'; bar.style.height=pct(n)+'%';
+    const tip = document.createElement('div'); tip.className='bar-tip';
+    tip.textContent = (cap > 0 ? Math.round(n/cap*100) : 0) + ' %';
+    bar.appendChild(tip);
+    bar.addEventListener('click', e=>{
+      e.stopPropagation();
+      const wasOn = tip.classList.contains('on');
+      chart.querySelectorAll('.bar-tip.on').forEach(t=>t.classList.remove('on'));
+      if(!wasOn) tip.classList.add('on');
+    });
     col.appendChild(bar); chart.appendChild(col);
   });
+  chart.addEventListener('click', ()=>chart.querySelectorAll('.bar-tip.on').forEach(t=>t.classList.remove('on')));
 }
 
 function renderCuve(){
