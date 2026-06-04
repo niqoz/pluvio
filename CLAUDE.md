@@ -98,6 +98,33 @@ Par maille (clé = `"LAMBX_LAMBY"`) :
 - GitHub Pages sert `main /docs`. Redéploiement ~1 min après `git push`.
 - Git user local : `niqoz / niqoz@users.noreply.github.com` (pas de config globale sur la machine d'origine).
 
+## Italpluvio (déclinaison Italie, `docs/it/`)
+
+Clone de Pluvio couvrant **l'Italie**, servi sur `niqoz.github.io/pluvio/it/`. Même app, même module cuve, même méthode ; seule la **source de données** change.
+
+**Source des données (le jeu publié vient de CDS) :** réanalyse **ERA5-Land** (Copernicus, ~9 km), pas de SAFRAN (franco-français). Deux pipelines existent :
+
+1. **`build_italie_cds.py` — Copernicus CDS (SOURCE DU JEU ACTUEL, recommandé).** Télécharge **en bloc** la grille ERA5-Land **mensuelle** sur l'Italie (1 fichier NetCDF ~44 Mo, `data/raw/era5land_italie_monthly.nc`), puis agrège en local. **Pas de quota par point.** 3 235 points produits sur toute l'Italie.
+   - **ET0 calculée FAO-56** Penman-Monteith par nos soins (`et0_fao56`), PAS la variable `pev` d'ERA5. Validée sur l'exemple FAO-56 n°17 (Bangkok = 5,72 mm/j) via `--selftest`. Simplifications documentées : pas de temps **mensuel**, Tmax=Tmin=Tmoy (mensuel), **altitude=0** (z absent du produit mensuel) → `altitude_m` reste `null`.
+   - **Piège CDS** : le jeu *journalier* `derived-era5-land-daily-statistics` **exclut** les variables cumulées (pluie, rayonnement) → on prend le **mensuel** qui les contient. Conventions d'unités : `tp` (m, cumul journalier moyen) → mm/mois = `tp×1000×nb_jours` ; `ssrd` (J/m²/j) → MJ/m²/j = `/1e6`. ERA5-Land est **masqué en mer** (NaN) → on saute les cellules/mois NaN (sinon `round(NaN)` plante).
+   - **Pré-requis** : `cdsapi xarray netcdf4 numpy` dans un **venv** (`.venv/`, Debian bloque le pip système — PEP 668) ; compte Copernicus gratuit + `~/.cdsapirc`. Lancer avec `.venv/bin/python`.
+2. **`build_italie.py` — Open-Meteo (point par point, REPLI/historique).** `models=best_match` (ERA5-Land 9 km ; `era5_land` pur renvoie `null` pour pluie/ET0). Fournit l'ET0 toute prête + l'altitude. **MAIS** quota anonyme très serré : ~60-70 points/h, ~130/j → impraticable pour la grille complète (d'où le passage à CDS). Filtre mer + pays voisins par **polygone** (ray casting maison). `QuotaStop` (horaire/journalier) = arrêt propre, reprise via cache `data/out/italie_cache.jsonl`. Modes `--sample` / `--step=` / `--start=`.
+
+- **Communes** : PAS de géocodage en masse. Le nom de commune est récupéré **au clic, en ligne**, via **Nominatim** (`nominatim.openstreetmap.org/reverse`) — équivalent du `geo.api.gouv.fr` de la France. `commune` reste `null` dans le JSON.
+- **Trilingue FR / DE / IT** : dictionnaire `I18N` + `t(key)` ; bascule de langue (boutons en-tête), choix mémorisé en `localStorage('lang')` ; défaut = langue du navigateur sinon `it`. Tout texte statique porte `data-i18n` (+ `-title`, `ios_hint_html` à part) ; les textes dynamiques passent par `t()` et sont re-rendus au changement de langue. Le DE couvre le Haut-Adige/Tyrol du Sud (Bolzano).
+- **findMaille** : simple plus proche voisin (tous les points sont terrestres grâce au polygone, donc plus besoin de privilégier les mailles « avec commune » comme côté France).
+- **Service worker** : cache `italpluvio-vN` (séparé de Pluvio), réseau-d'abord. Incrémenter à chaque mise à jour.
+
+### Régénérer les données Italie (voie CDS, recommandée)
+
+```bash
+.venv/bin/python pipeline/build_italie_cds.py --selftest   # valide la formule ET0 FAO-56 (sans CDS)
+.venv/bin/python pipeline/build_italie_cds.py --download    # télécharge le NetCDF ERA5-Land mensuel (~44 Mo, file d'attente CDS)
+.venv/bin/python pipeline/build_italie_cds.py               # agrège -> docs/it/normales_italie.json (3 235 points)
+# Incrémenter CACHE dans docs/it/sw.js, puis commit/push
+```
+Le polygone Italie (`data/raw/italie_regions.geojson`, openpolis/geojson-italy) est téléchargé une fois par `build_italie.py` et réutilisé par la voie CDS.
+
 ## Régénérer les données (si nouvelles années SAFRAN disponibles)
 
 Cas simple (1er build complet) :

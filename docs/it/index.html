@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Italpluvio — Profilo pluviometrico</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2f80ed">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Italpluvio">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<style>
+  :root{
+    --bg:#eef3f8; --card:#ffffff; --ink:#1f2d3d; --muted:#6b7c93;
+    --bar:#2f80ed; --bar2:#9cc3f7; --band:rgba(47,128,237,.14);
+    --accent:#0b6e4f; --warn:#b9770e; --line:#e3eaf2;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--bg); color:var(--ink);
+    display:flex; justify-content:center; padding:16px;
+  }
+  .phone{
+    width:100%; max-width:430px; background:var(--card);
+    border-radius:22px; overflow:hidden;
+    box-shadow:0 10px 40px rgba(31,45,61,.12);
+  }
+  /* En-tete */
+  header{
+    background:linear-gradient(135deg,#2f80ed,#1c5fc4);
+    color:#fff; padding:18px 18px 16px; position:relative;
+  }
+  .title{display:flex;align-items:center;gap:10px;font-size:17px;font-weight:700}
+  .title .drop{font-size:22px}
+  .subtitle{font-size:12.5px;opacity:.85;margin-top:3px}
+  /* Selecteur de langue */
+  .langs{position:absolute;top:14px;right:14px;display:flex;gap:4px}
+  .langs button{
+    border:none;border-radius:8px;padding:4px 7px;font-size:11px;font-weight:700;
+    background:rgba(255,255,255,.18);color:#fff;cursor:pointer;letter-spacing:.5px;
+  }
+  .langs button.active{background:#fff;color:var(--bar)}
+  .loc{
+    display:flex;align-items:center;gap:7px;margin-top:14px;
+    background:rgba(255,255,255,.15);border-radius:12px;padding:9px 12px;font-size:14px;
+  }
+  .loc .pin{font-size:15px}
+  .loc b{font-weight:700}
+  .loc small{opacity:.8;font-weight:400}
+  .picker{display:flex;gap:7px;margin-top:14px}
+  .picker select{
+    flex:1;border:none;border-radius:12px;padding:10px 12px;font-size:14px;
+    background:rgba(255,255,255,.92);color:var(--ink);font-weight:600;
+    -webkit-appearance:none;appearance:none;cursor:pointer;
+  }
+  .picker button{
+    border:none;border-radius:12px;padding:10px 12px;font-size:13px;font-weight:700;
+    background:rgba(255,255,255,.2);color:#fff;cursor:pointer;white-space:nowrap;
+  }
+  .picker button:active{background:rgba(255,255,255,.35)}
+  .install{
+    margin-top:10px;width:100%;border:none;border-radius:12px;padding:11px;
+    background:#fff;color:var(--bar);font-size:13.5px;font-weight:700;cursor:pointer;
+  }
+  .install:active{background:#eaf2fe}
+  .mapToggle{
+    margin-top:8px;width:100%;border:none;border-radius:12px;padding:10px;
+    background:rgba(255,255,255,.2);color:#fff;font-size:13px;font-weight:700;cursor:pointer;
+  }
+  .mapToggle:active{background:rgba(255,255,255,.35)}
+  #mapPanel{border-bottom:1px solid var(--line)}
+  #map{height:280px;width:100%;background:#dde6ef}
+  .maphint{font-size:11px;color:var(--muted);text-align:center;padding:7px 10px}
+  .ioshint{
+    position:fixed;left:50%;transform:translateX(-50%);bottom:12px;
+    width:calc(100% - 24px);max-width:406px;z-index:1000;
+    background:#1f2d3d;color:#fff;border-radius:14px;padding:12px 14px;
+    box-shadow:0 6px 24px rgba(0,0,0,.28);font-size:13px;line-height:1.45;
+    display:flex;gap:10px;align-items:flex-start;
+  }
+  .ioshint[hidden]{display:none}
+  .ioshint b{color:#9cc3f7}
+  .ioshint .x{
+    margin-left:auto;background:rgba(255,255,255,.15);border:none;color:#fff;
+    border-radius:8px;padding:4px 9px;font-size:13px;cursor:pointer;flex:none;
+  }
+  .windows{display:flex;gap:6px;padding:14px 16px 4px}
+  .windows button{
+    flex:1;border:1px solid var(--line);background:#f6f9fc;color:var(--muted);
+    font-size:11.5px;font-weight:600;padding:9px 4px;border-radius:10px;cursor:pointer;
+    line-height:1.25;transition:.15s;
+  }
+  .windows button .big{display:block;font-size:13px;color:var(--ink)}
+  .windows button.active{background:#eaf2fe;border-color:var(--bar);color:var(--bar)}
+  .windows button.active .big{color:var(--bar)}
+  .win-note{font-size:11px;color:var(--muted);padding:2px 18px 0;text-align:center}
+  .chart-wrap{padding:14px 14px 4px}
+  .chart{
+    position:relative;height:220px;display:flex;align-items:flex-end;
+    gap:5px;border-left:1px solid var(--line);border-bottom:1px solid var(--line);
+    padding-left:4px;
+  }
+  .ygrid{position:absolute;left:0;right:0;height:1px;background:var(--line);z-index:0}
+  .ylabel{position:absolute;left:-2px;transform:translateY(-50%);
+    font-size:9px;color:var(--muted);background:var(--card);padding:0 2px}
+  .col{position:relative;flex:1;height:100%;display:flex;align-items:flex-end;z-index:1}
+  .band{position:absolute;left:18%;right:18%;background:var(--band);border-radius:3px}
+  .bar{
+    position:relative;width:100%;
+    background:linear-gradient(180deg,var(--bar),#2566c4);
+    border-radius:4px 4px 0 0;transition:height .4s ease;
+  }
+  .bar .val{
+    position:absolute;top:-15px;left:50%;transform:translateX(-50%);
+    font-size:8.5px;color:var(--muted);white-space:nowrap;
+  }
+  .xlabels{display:flex;gap:5px;padding:6px 0 0 4px}
+  .xlabels span{flex:1;text-align:center;font-size:9.5px;color:var(--muted)}
+  .legend{display:flex;gap:16px;justify-content:center;padding:8px 0 2px;font-size:11px;color:var(--muted)}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  .recap{padding:12px 16px 4px}
+  .recap-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stat{background:#f6f9fc;border-radius:12px;padding:11px 12px}
+  .stat .k{font-size:10.5px;color:var(--muted);display:block}
+  .stat .v{font-size:19px;font-weight:700;margin-top:2px}
+  .stat .v small{font-size:11px;font-weight:600;color:var(--muted)}
+  .stat.wide{margin-bottom:10px}
+  .stat.dry .v{color:var(--warn)}
+  .stat.wet .v{color:var(--bar)}
+  .meta{padding:12px 16px 4px;font-size:11.5px;color:var(--muted);line-height:1.6}
+  .meta .row{display:flex;justify-content:space-between;border-bottom:1px dashed var(--line);padding:3px 0;gap:10px}
+  .meta .row b{color:var(--ink);font-weight:600;text-align:right}
+  .warn-box{
+    margin:12px 16px;background:#fff8ec;border:1px solid #f3e2c0;border-radius:12px;
+    padding:11px 12px;font-size:11px;color:#7a5a14;line-height:1.5;
+  }
+  .warn-box b{display:block;margin-bottom:3px;color:var(--warn)}
+  footer{padding:10px 16px 18px;font-size:9.5px;color:#9aa9bd;text-align:center;line-height:1.5}
+  .mock-tag{
+    display:inline-block;background:#ffe0e0;color:#c0392b;font-size:9px;font-weight:700;
+    padding:2px 7px;border-radius:6px;letter-spacing:.5px;margin-bottom:6px;
+  }
+  .tabs{display:flex;gap:0;border-bottom:1px solid var(--line)}
+  .tabs button{
+    flex:1;border:none;background:#f6f9fc;color:var(--muted);
+    font-size:13px;font-weight:700;padding:12px 4px;cursor:pointer;
+    border-bottom:2px solid transparent;
+  }
+  .tabs button.active{background:#fff;color:var(--bar);border-bottom-color:var(--bar)}
+  .cuve-form{padding:14px 16px 4px}
+  .field{margin-bottom:11px}
+  .field label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px;font-weight:600}
+  .field .row2{display:flex;gap:8px}
+  .field input,.field select{
+    width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 11px;
+    font-size:14px;font-weight:600;color:var(--ink);background:#f6f9fc;
+    -webkit-appearance:none;appearance:none;
+  }
+  .field input:focus,.field select:focus{outline:none;border-color:var(--bar);background:#fff}
+  .cuve-res{padding:6px 16px 4px}
+  .reco-head{background:#eaf2fe;border:1px solid #cfe2fb;border-radius:12px;
+    padding:13px;text-align:center;margin-bottom:10px}
+  .reco-head .k{font-size:11px;color:var(--muted);display:block}
+  .reco-head .vol{font-size:30px;font-weight:800;color:var(--bar);margin:2px 0 1px}
+  .reco-head .vol small{font-size:14px;font-weight:700}
+  .reco-head .cov{font-size:11.5px;color:var(--muted)}
+  .cuve-res .reco-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .reco{background:#f6f9fc;border-radius:12px;padding:11px;text-align:center}
+  .reco.moyen{border:1px solid #cfe2fb}
+  .reco.seche{border:1px solid #f3e2c0;background:#fff8ec}
+  .reco .k{font-size:10.5px;color:var(--muted);display:block}
+  .reco .pct{font-size:22px;font-weight:800;margin:2px 0 1px}
+  .reco.moyen .pct{color:var(--bar)}
+  .reco.seche .pct{color:var(--warn)}
+  .reco .cov{font-size:10.5px;color:var(--muted);line-height:1.3}
+  .cuve-secure{margin:10px 0 0;background:#eef7f2;border:1px solid #cfe8dc;border-radius:12px;
+    padding:10px 12px;font-size:11.5px;color:var(--accent);line-height:1.45}
+  .cuve-secure b{font-weight:700}
+  .cuve-ctx{padding:10px 16px 2px;font-size:11.5px;color:var(--muted);line-height:1.6}
+  .cuve-ctx .row{display:flex;justify-content:space-between;border-bottom:1px dashed var(--line);padding:3px 0}
+  .cuve-ctx .row b{color:var(--ink);font-weight:600}
+  .cuve-note{margin:6px 16px 2px;font-size:11px;color:var(--muted);line-height:1.5}
+  .vol-reset{flex:none;width:44px;border:1px solid var(--line);border-radius:10px;
+    background:#f6f9fc;font-size:17px;color:var(--muted);cursor:pointer}
+  .vol-reset:active{background:#eaf2fe}
+  .cuve-sim-res{font-size:11.5px;color:var(--muted);line-height:1.5;margin:2px 0 4px}
+  .cuve-sim-res b{color:var(--ink);font-weight:700}
+  .zone-row{display:flex;gap:8px;margin-bottom:6px;align-items:center}
+  .zone-row .z-surf{width:78px;flex:none}
+  .zone-row .z-type{flex:1;min-width:0;width:auto}
+  .zone-row .z-del{flex:none;width:38px;border:1px solid var(--line);border-radius:10px;
+    background:#f6f9fc;color:var(--muted);font-size:14px;cursor:pointer;padding:10px 0}
+  .zone-row .z-del:active{background:#fdeced}
+  .add-zone{width:100%;border:1px dashed #b9d4f5;border-radius:10px;padding:9px;
+    background:#f6f9fc;color:var(--bar);font-weight:600;font-size:12.5px;cursor:pointer}
+  .add-zone:active{background:#eaf2fe}
+</style>
+</head>
+<body>
+<div class="phone">
+  <header>
+    <div class="langs" id="langs">
+      <button data-l="fr">FR</button><button data-l="de">DE</button><button data-l="it">IT</button>
+    </div>
+    <div class="title"><span class="drop">💧</span> <span data-i18n="app_title"></span></div>
+    <div class="subtitle" data-i18n="subtitle"></div>
+    <div class="picker">
+      <select id="ville"></select>
+      <button id="gpsBtn" data-i18n="gps"></button>
+    </div>
+    <div class="loc" id="locInfo">
+      <span class="pin">📍</span><span data-i18n="loading_loc"></span>
+    </div>
+    <button id="installBtn" class="install" hidden data-i18n="install"></button>
+    <button id="mapBtn" class="mapToggle" data-i18n="map_open"></button>
+  </header>
+
+  <div id="mapPanel" hidden>
+    <div id="map"></div>
+    <div class="maphint" data-i18n="map_hint"></div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button data-t="pluie" class="active" data-i18n="tab_rain"></button>
+    <button data-t="cuve" data-i18n="tab_tank"></button>
+  </div>
+
+  <div id="tabPluie">
+  <div class="windows" id="windows">
+    <button data-w="ref" class="active"><span class="big">1995→2020</span><span data-i18n="win_ref_sub"></span></button>
+    <button data-w="recente"><span class="big" data-i18n="win_rec_big"></span><span data-i18n="win_rec_sub"></span></button>
+  </div>
+  <div class="win-note" id="winNote"></div>
+
+  <div class="chart-wrap">
+    <div class="chart" id="chart"></div>
+    <div class="xlabels" id="xlabels"></div>
+    <div class="legend">
+      <span><i style="background:var(--bar)"></i><span data-i18n="legend_mean"></span></span>
+      <span><i style="background:var(--band)"></i><span data-i18n="legend_band"></span></span>
+    </div>
+  </div>
+
+  <div class="recap">
+    <div class="stat wide">
+      <span class="k" data-i18n="recap_annual"></span>
+      <span class="v" id="annuel">— <small>mm</small></span>
+    </div>
+    <div class="recap-grid">
+      <div class="stat dry">
+        <span class="k" data-i18n="recap_dry"></span>
+        <span class="v" id="seche">— <small>mm</small></span>
+      </div>
+      <div class="stat wet">
+        <span class="k" data-i18n="recap_wet"></span>
+        <span class="v" id="humide">— <small>mm</small></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="meta">
+    <div class="row"><span data-i18n="meta_commune"></span><b id="communeLine">—</b></div>
+    <div class="row"><span data-i18n="meta_point"></span><b id="mailleId">ERA5-Land</b></div>
+    <div class="row"><span data-i18n="meta_center"></span><b id="mailleCoord">—</b></div>
+    <div class="row"><span data-i18n="meta_period"></span><b id="periode">—</b></div>
+    <div class="row" style="border:none"><span data-i18n="meta_source"></span><b>Copernicus ERA5-Land (CDS)</b></div>
+  </div>
+
+  <div class="warn-box">
+    <b data-i18n="warn_rain_title"></b>
+    <span data-i18n="warn_rain_txt"></span>
+  </div>
+  </div><!-- /tabPluie -->
+
+  <div id="tabCuve" hidden>
+    <div class="cuve-form">
+      <div class="field">
+        <label data-i18n="roof_label"></label>
+        <div class="row2">
+          <input id="cToit" type="number" inputmode="numeric" min="1" step="1" value="100">
+          <select id="cMat" data-i18n-title="mat_title">
+            <option value="0.9" data-i18n="mat_tiles"></option>
+            <option value="0.9" data-i18n="mat_steel"></option>
+            <option value="0.7" data-i18n="mat_gravel"></option>
+            <option value="0.4" data-i18n="mat_green"></option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label data-i18n="zones_label"></label>
+        <div id="cZones"></div>
+        <button id="cAddZone" type="button" class="add-zone" data-i18n="add_culture"></button>
+      </div>
+    </div>
+
+    <div class="cuve-res">
+      <div class="reco-head">
+        <span class="k" data-i18n="reco_vol"></span>
+        <div class="vol" id="volReco">— <small>m³</small></div>
+        <div class="cov" id="covReco">—</div>
+      </div>
+      <div class="reco-grid">
+        <div class="reco moyen">
+          <span class="k" data-i18n="reco_normal"></span>
+          <div class="pct" id="covMoyen">—</div>
+          <div class="cov" data-i18n="covered"></div>
+        </div>
+        <div class="reco seche">
+          <span class="k" data-i18n="recap_dry"></span>
+          <div class="pct" id="covSeche">—</div>
+          <div class="cov" data-i18n="covered"></div>
+        </div>
+      </div>
+      <div class="cuve-secure" id="cuveSecure" hidden></div>
+    </div>
+
+    <div class="cuve-ctx">
+      <div class="row"><span data-i18n="ctx_recup"></span><b id="ctxRecup">—</b></div>
+      <div class="row"><span data-i18n="ctx_besoin"></span><b id="ctxBesoin">—</b></div>
+      <div class="row" style="border:none"><span data-i18n="ctx_period"></span><b id="ctxPeriode">—</b></div>
+    </div>
+
+    <div class="warn-box" id="cuveLimite" hidden>
+      <b data-i18n="lim_title"></b>
+      <span id="cuveLimiteTxt"></span>
+    </div>
+
+    <div class="cuve-form" style="padding:6px 16px 0">
+      <div class="field" style="margin-bottom:6px">
+        <label data-i18n="test_cap_label"></label>
+        <div class="row2">
+          <input id="cVolPerso" type="number" inputmode="decimal" min="0" step="0.5">
+          <button id="cVolReset" type="button" class="vol-reset" data-i18n-title="reset_title">↺</button>
+        </div>
+      </div>
+      <div class="cuve-sim-res" id="cVolPersoRes" hidden></div>
+    </div>
+
+    <div class="chart-wrap">
+      <div class="chart" id="cuveChart"></div>
+      <div class="xlabels" id="xlabels2"></div>
+      <div class="legend">
+        <span><i style="background:var(--bar)"></i><span id="cuveLegend"></span></span>
+      </div>
+    </div>
+
+    <div class="cuve-note" data-i18n="cuve_note"></div>
+  </div><!-- /tabCuve -->
+
+  <footer>
+    <span class="mock-tag" id="dataTag">…</span><br>
+    <span data-i18n="foot_source"></span>
+  </footer>
+</div>
+
+<div id="iosHint" class="ioshint" hidden>
+  <span class="ios-msg"></span>
+  <button id="iosHintClose" class="x" aria-label="X">✕</button>
+</div>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script>
+// ====================== Internationalisation (FR / DE / IT) ======================
+const I18N = {
+  fr:{
+    app_title:"Profilo pluviometrico", // remplacé ci-dessous
+    subtitle:"Aide au dimensionnement de la récupération d'eau de pluie",
+    gps:"📍 Ma position", loading_loc:"Chargement…",
+    install:"⬇️ Installer l'appli sur l'écran d'accueil",
+    map_open:"🗺️ Choisir le point sur une carte", map_close:"🗺️ Masquer la carte",
+    map_hint:"Touchez la carte pour choisir un point (nécessite une connexion)",
+    tab_rain:"💧 Profil pluie", tab_tank:"🛢️ Dimensionner la cuve",
+    win_ref_sub:"Période de référence", win_rec_big:"15 dern. ans", win_rec_sub:"Climat récent",
+    note_ref:"Période de référence 1995-2020 (réglage par défaut).",
+    note_rec:"Les 15 dernières années — climat actuel.",
+    years_suffix:"années", recent_15:"15 dernières années",
+    legend_mean:"Pluie moyenne (mm)", legend_band:"Année sèche → humide",
+    recap_annual:"Pluie totale / an (moyenne)", recap_dry:"Année sèche (1 sur 10)",
+    recap_wet:"Année humide (1 sur 10)",
+    meta_commune:"Commune", meta_point:"Point météo", meta_center:"Centre · altitude",
+    meta_period:"Période couverte", meta_source:"Source",
+    warn_rain_title:"⚠ À garder en tête",
+    warn_rain_txt:"Le point représente une maille d'environ 9 km (réanalyse ERA5-Land) : en relief marqué (Alpes, Apennins), la pluie réelle de votre toit peut différer. C'est une moyenne longue durée fiable, pas un pluviomètre sur site.",
+    roof_label:"Surface de toit collectée (m²)", mat_title:"Matériau de toiture",
+    mat_tiles:"Tuiles / ardoises", mat_steel:"Bac acier / tôle",
+    mat_gravel:"Toiture gravillonnée", mat_green:"Toiture végétalisée",
+    zones_label:"Surfaces arrosées, par culture (m²)", add_culture:"＋ Ajouter une culture",
+    reco_vol:"Volume de cuve conseillé", reco_normal:"Année normale",
+    covered:"de l'arrosage couvert",
+    ctx_recup:"Eau récupérable sur le toit", ctx_besoin:"Besoin d'arrosage estimé",
+    ctx_period:"Période climatique utilisée",
+    lim_title:"⚠ Limité par la toiture",
+    test_cap_label:"Cuve conseillée trop grande ? Testez une autre capacité (m³)",
+    reset_title:"Revenir à la cuve conseillée",
+    cuve_note:"Méthode de Rippl (bilan mensuel). Besoin d'arrosage = évapotranspiration de chaque culture (ET0 × coefficient cultural) moins la pluie ; le besoin est calculé par culture puis additionné. L'hiver tombe naturellement à zéro (pause végétative). En zone méditerranéenne, choisir « Kikuyu / gazon chaud » : il consomme ~30 % de moins qu'un gazon classique. Le volume conseillé couvre l'arrosage en traversant la saison sèche.",
+    foot_source:"Source : Copernicus ERA5-Land (CDS) · communes © OpenStreetMap",
+    ios_hint_html:'📲 Pour installer sur iPhone : touchez <b>Partager</b> (carré avec flèche ↑), puis <b>« Sur l\'écran d\'accueil »</b>. À faire dans <b>Safari</b>.',
+    loc_me:"Ma position", loc_map:"Point sur carte",
+    loading_pts:n=>"Chargement des "+n+" points…",
+    err_load:e=>"Erreur de chargement ("+e+")",
+    gps_no:"GPS non disponible sur ce navigateur.",
+    gps_fail:m=>"Position refusée ou indisponible ("+m+").",
+    et0_na:"Données ET0 indisponibles pour ce point",
+    cov_full:"couvre tout l’arrosage une année normale",
+    cov_part:p=>"couvre "+p+"% de l’arrosage une année normale",
+    lim_txt:"Une année sèche, la pluie de ce toit ne suffit pas à couvrir tout l’arrosage : une cuve plus grande n’y change rien (elle déborderait l’hiver). Pour gagner en autonomie : plus de surface de toit, ou moins de surface arrosée.",
+    secure:v=>"Pour rester à <b>100 % même une année sèche</b>, prévoir <b>"+v+" m³</b>.",
+    sim_res:(v,a,b)=>"Une cuve de <b>"+v+" m³</b> couvre <b>"+a+" %</b> de l’arrosage une année normale et <b>"+b+" %</b> une année sèche.",
+    leg_perso:v=>"Niveau d’une cuve de "+v+" m³ — année sèche",
+    leg_reco:"Niveau de la cuve conseillée (m³) — année sèche",
+    m3_an:"m³/an", pts_tag:n=>"ERA5-Land — "+n+" points", placeholder_vol:v=>"conseillée : "+v+" m³",
+    plantes:{gazon_froid:"Gazon classique (ray-grass, fétuque)",gazon_chaud:"Kikuyu / gazon chaud (Sud, îles)",potager:"Potager",massifs:"Massifs / arbustes",verger:"Verger / fruitiers irrigués",oliviers:"Oliviers / figuiers / agrumes"}
+  },
+  de:{
+    subtitle:"Hilfe zur Dimensionierung der Regenwassernutzung",
+    gps:"📍 Mein Standort", loading_loc:"Laden…",
+    install:"⬇️ App zum Startbildschirm hinzufügen",
+    map_open:"🗺️ Punkt auf der Karte wählen", map_close:"🗺️ Karte ausblenden",
+    map_hint:"Tippen Sie auf die Karte, um einen Punkt zu wählen (Verbindung nötig)",
+    tab_rain:"💧 Regenprofil", tab_tank:"🛢️ Tank dimensionieren",
+    win_ref_sub:"Referenzzeitraum", win_rec_big:"letzte 15 J.", win_rec_sub:"Aktuelles Klima",
+    note_ref:"Referenzzeitraum 1995-2020 (Standard).",
+    note_rec:"Die letzten 15 Jahre — aktuelles Klima.",
+    years_suffix:"Jahre", recent_15:"letzte 15 Jahre",
+    legend_mean:"Mittlerer Niederschlag (mm)", legend_band:"Trockenes → feuchtes Jahr",
+    recap_annual:"Gesamtniederschlag / Jahr (Mittel)", recap_dry:"Trockenes Jahr (1 von 10)",
+    recap_wet:"Feuchtes Jahr (1 von 10)",
+    meta_commune:"Gemeinde", meta_point:"Wetterpunkt", meta_center:"Zentrum · Höhe",
+    meta_period:"Abgedeckter Zeitraum", meta_source:"Quelle",
+    warn_rain_title:"⚠ Zu beachten",
+    warn_rain_txt:"Der Punkt steht für eine Zelle von rund 9 km (ERA5-Land-Reanalyse): in ausgeprägtem Relief (Alpen, Apennin) kann der tatsächliche Niederschlag an Ihrem Dach abweichen. Es ist ein zuverlässiger Langzeitmittelwert, kein Regenmesser vor Ort.",
+    roof_label:"Erfasste Dachfläche (m²)", mat_title:"Dachmaterial",
+    mat_tiles:"Ziegel / Schiefer", mat_steel:"Stahlblech / Blech",
+    mat_gravel:"Kiesdach", mat_green:"Gründach",
+    zones_label:"Bewässerte Flächen, je Kultur (m²)", add_culture:"＋ Kultur hinzufügen",
+    reco_vol:"Empfohlenes Tankvolumen", reco_normal:"Normales Jahr",
+    covered:"der Bewässerung gedeckt",
+    ctx_recup:"Auf dem Dach nutzbares Wasser", ctx_besoin:"Geschätzter Bewässerungsbedarf",
+    ctx_period:"Verwendeter Klimazeitraum",
+    lim_title:"⚠ Durch das Dach begrenzt",
+    test_cap_label:"Empfohlener Tank zu groß? Andere Kapazität testen (m³)",
+    reset_title:"Zurück zum empfohlenen Tank",
+    cuve_note:"Rippl-Methode (Monatsbilanz). Bewässerungsbedarf = Verdunstung jeder Kultur (ET0 × Kulturkoeffizient) minus Niederschlag; der Bedarf wird je Kultur berechnet und addiert. Im Winter fällt er natürlich auf null (Vegetationsruhe). In mediterranen Lagen „Kikuyu / Warmrasen“ wählen: er verbraucht ~30 % weniger als klassischer Rasen. Das empfohlene Volumen deckt die Bewässerung über die Trockenzeit.",
+    foot_source:"Quelle: Copernicus ERA5-Land (CDS) · Gemeinden © OpenStreetMap",
+    ios_hint_html:'📲 Installation auf dem iPhone: <b>Teilen</b> antippen (Quadrat mit Pfeil ↑), dann <b>„Zum Home-Bildschirm“</b>. In <b>Safari</b> ausführen.',
+    loc_me:"Mein Standort", loc_map:"Punkt auf Karte",
+    loading_pts:n=>"Lade "+n+" Punkte…",
+    err_load:e=>"Ladefehler ("+e+")",
+    gps_no:"GPS in diesem Browser nicht verfügbar.",
+    gps_fail:m=>"Standort abgelehnt oder nicht verfügbar ("+m+").",
+    et0_na:"ET0-Daten für diesen Punkt nicht verfügbar",
+    cov_full:"deckt die gesamte Bewässerung in einem normalen Jahr",
+    cov_part:p=>"deckt "+p+"% der Bewässerung in einem normalen Jahr",
+    lim_txt:"In einem Trockenjahr reicht der Regen dieses Daches nicht für die gesamte Bewässerung: ein größerer Tank ändert daran nichts (er würde im Winter überlaufen). Für mehr Autonomie: mehr Dachfläche oder weniger bewässerte Fläche.",
+    secure:v=>"Um auch in einem Trockenjahr bei <b>100 %</b> zu bleiben, <b>"+v+" m³</b> vorsehen.",
+    sim_res:(v,a,b)=>"Ein Tank von <b>"+v+" m³</b> deckt <b>"+a+" %</b> der Bewässerung in einem normalen Jahr und <b>"+b+" %</b> in einem Trockenjahr.",
+    leg_perso:v=>"Füllstand eines Tanks von "+v+" m³ — Trockenjahr",
+    leg_reco:"Füllstand des empfohlenen Tanks (m³) — Trockenjahr",
+    m3_an:"m³/Jahr", pts_tag:n=>"ERA5-Land — "+n+" Punkte", placeholder_vol:v=>"empfohlen: "+v+" m³",
+    plantes:{gazon_froid:"Klassischer Rasen (Weidelgras, Schwingel)",gazon_chaud:"Kikuyu / Warmrasen (Süden, Inseln)",potager:"Gemüsegarten",massifs:"Beete / Sträucher",verger:"Obstgarten / bewässerte Obstbäume",oliviers:"Oliven / Feigen / Zitrus"}
+  },
+  it:{
+    subtitle:"Aiuto al dimensionamento del recupero dell'acqua piovana",
+    gps:"📍 La mia posizione", loading_loc:"Caricamento…",
+    install:"⬇️ Installa l'app nella schermata Home",
+    map_open:"🗺️ Scegli il punto sulla mappa", map_close:"🗺️ Nascondi la mappa",
+    map_hint:"Tocca la mappa per scegliere un punto (richiede connessione)",
+    tab_rain:"💧 Profilo pioggia", tab_tank:"🛢️ Dimensiona la cisterna",
+    win_ref_sub:"Periodo di riferimento", win_rec_big:"ultimi 15 anni", win_rec_sub:"Clima recente",
+    note_ref:"Periodo di riferimento 1995-2020 (predefinito).",
+    note_rec:"Gli ultimi 15 anni — clima attuale.",
+    years_suffix:"anni", recent_15:"ultimi 15 anni",
+    legend_mean:"Pioggia media (mm)", legend_band:"Anno secco → umido",
+    recap_annual:"Pioggia totale / anno (media)", recap_dry:"Anno secco (1 su 10)",
+    recap_wet:"Anno umido (1 su 10)",
+    meta_commune:"Comune", meta_point:"Punto meteo", meta_center:"Centro · quota",
+    meta_period:"Periodo coperto", meta_source:"Fonte",
+    warn_rain_title:"⚠ Da tenere presente",
+    warn_rain_txt:"Il punto rappresenta una cella di circa 9 km (rianalisi ERA5-Land): in rilievo marcato (Alpi, Appennini) la pioggia reale sul tuo tetto può differire. È una media di lungo periodo affidabile, non un pluviometro in loco.",
+    roof_label:"Superficie del tetto raccolta (m²)", mat_title:"Materiale del tetto",
+    mat_tiles:"Tegole / ardesia", mat_steel:"Lamiera d'acciaio",
+    mat_gravel:"Tetto in ghiaia", mat_green:"Tetto verde",
+    zones_label:"Superfici irrigate, per coltura (m²)", add_culture:"＋ Aggiungi una coltura",
+    reco_vol:"Volume cisterna consigliato", reco_normal:"Anno normale",
+    covered:"dell'irrigazione coperta",
+    ctx_recup:"Acqua recuperabile dal tetto", ctx_besoin:"Fabbisogno d'irrigazione stimato",
+    ctx_period:"Periodo climatico usato",
+    lim_title:"⚠ Limitato dal tetto",
+    test_cap_label:"Cisterna consigliata troppo grande? Prova un'altra capacità (m³)",
+    reset_title:"Torna alla cisterna consigliata",
+    cuve_note:"Metodo di Rippl (bilancio mensile). Fabbisogno d'irrigazione = evapotraspirazione di ogni coltura (ET0 × coefficiente colturale) meno la pioggia; il fabbisogno è calcolato per coltura e poi sommato. In inverno scende naturalmente a zero (riposo vegetativo). In zona mediterranea scegliere « Kikuyu / prato caldo »: consuma ~30 % in meno di un prato classico. Il volume consigliato copre l'irrigazione attraversando la stagione secca.",
+    foot_source:"Fonte: Copernicus ERA5-Land (CDS) · comuni © OpenStreetMap",
+    ios_hint_html:'📲 Per installare su iPhone: tocca <b>Condividi</b> (quadrato con freccia ↑), poi <b>« Aggiungi a Home »</b>. Da fare in <b>Safari</b>.',
+    loc_me:"La mia posizione", loc_map:"Punto sulla mappa",
+    loading_pts:n=>"Caricamento di "+n+" punti…",
+    err_load:e=>"Errore di caricamento ("+e+")",
+    gps_no:"GPS non disponibile su questo browser.",
+    gps_fail:m=>"Posizione rifiutata o non disponibile ("+m+").",
+    et0_na:"Dati ET0 non disponibili per questo punto",
+    cov_full:"copre tutta l'irrigazione in un anno normale",
+    cov_part:p=>"copre il "+p+"% dell'irrigazione in un anno normale",
+    lim_txt:"In un anno secco la pioggia di questo tetto non basta a coprire tutta l'irrigazione: una cisterna più grande non cambia nulla (traboccherebbe d'inverno). Per più autonomia: più superficie di tetto, o meno superficie irrigata.",
+    secure:v=>"Per restare al <b>100 % anche in un anno secco</b>, prevedere <b>"+v+" m³</b>.",
+    sim_res:(v,a,b)=>"Una cisterna di <b>"+v+" m³</b> copre il <b>"+a+" %</b> dell'irrigazione in un anno normale e il <b>"+b+" %</b> in un anno secco.",
+    leg_perso:v=>"Livello di una cisterna di "+v+" m³ — anno secco",
+    leg_reco:"Livello della cisterna consigliata (m³) — anno secco",
+    m3_an:"m³/anno", pts_tag:n=>"ERA5-Land — "+n+" punti", placeholder_vol:v=>"consigliata: "+v+" m³",
+    plantes:{gazon_froid:"Prato classico (loietto, festuca)",gazon_chaud:"Kikuyu / prato caldo (Sud, isole)",potager:"Orto",massifs:"Aiuole / arbusti",verger:"Frutteto / alberi da frutto irrigati",oliviers:"Olivi / fichi / agrumi"}
+  }
+};
+I18N.fr.app_title="Profil pluviométrique";
+I18N.de.app_title="Regenprofil";
+I18N.it.app_title="Profilo pluviometrico";
+
+let LANG = (function(){
+  const saved = localStorage.getItem('lang');
+  if(['fr','de','it'].includes(saved)) return saved;
+  const nav = (navigator.language||'').slice(0,2).toLowerCase();
+  return ['fr','de','it'].includes(nav) ? nav : 'it';
+})();
+function t(key){ return (I18N[LANG] && I18N[LANG][key]) ?? I18N.it[key] ?? key; }
+
+const MONTHS = "JFMAMJJASOND";  // initiales communes (FR/IT/DE proches)
+
+// applique toutes les chaines statiques (data-i18n / -ph / -title) + listes
+function applyStatic(){
+  document.documentElement.lang = LANG;
+  document.querySelectorAll('[data-i18n]').forEach(el=>{ el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el=>{ el.title = t(el.dataset.i18nTitle); });
+  document.querySelector('#iosHint .ios-msg').innerHTML = t('ios_hint_html');
+  document.querySelectorAll('#langs button').forEach(b=>b.classList.toggle('active', b.dataset.l===LANG));
+  // libelles des mois (x2 graphes)
+  ['xlabels','xlabels2'].forEach(id=>{
+    const box=document.getElementById(id); box.innerHTML='';
+    for(const c of MONTHS){ const s=document.createElement('span'); s.textContent=c; box.appendChild(s); }
+  });
+  // selecteurs de culture deja presents : rafraichir les libelles en gardant la valeur
+  document.querySelectorAll('.z-type').forEach(sel=>{
+    const v=sel.value; sel.innerHTML=optionsHTML(); sel.value=v;
+  });
+}
+
+function setLang(l){
+  if(!I18N[l]) return;
+  LANG=l; try{localStorage.setItem('lang',l);}catch(e){}
+  applyStatic();
+  if(JEU){ render(currentWin); renderCuve(); }
+}
+document.getElementById('langs').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(b) setLang(b.dataset.l);
+});
+
+// ====================== Donnees ======================
+const WIN = { ref:"ref_1995_2020", recente:"recente" };
+let JEU = null;          // point actuellement affiche
+let currentWin = 'ref';
+let MAILLES = [];        // [{id, lat, lon, data}]
+
+function pctFactory(ymax){ return v => (v/ymax*100); }
+
+function render(winKey){
+  if(!JEU) return;
+  const f = JEU.fenetres[WIN[winKey]];
+  const moy=f.moy, p10=f.p10, p90=f.p90;
+  let maxv = 10;
+  ['ref','recente'].forEach(k=>{
+    const ff = JEU.fenetres[WIN[k]];
+    if(!ff) return;
+    maxv = Math.max(maxv, ...ff.p90.filter(v=>v!=null), ...ff.moy.filter(v=>v!=null));
+  });
+  const YMAX = Math.ceil(maxv/50)*50;
+  const pct = pctFactory(YMAX);
+
+  const chart=document.getElementById('chart');
+  chart.innerHTML='';
+  for(let g=0; g<=YMAX; g+=50){
+    const line=document.createElement('div');
+    line.className='ygrid'; line.style.bottom=pct(g)+'%';
+    const lab=document.createElement('span');
+    lab.className='ylabel'; lab.style.bottom=pct(g)+'%'; lab.textContent=g;
+    chart.appendChild(line); chart.appendChild(lab);
+  }
+  moy.forEach((m,i)=>{
+    const col=document.createElement('div'); col.className='col';
+    if(p10[i]!=null && p90[i]!=null){
+      const band=document.createElement('div'); band.className='band';
+      band.style.bottom=pct(p10[i])+'%'; band.style.height=pct(p90[i]-p10[i])+'%';
+      col.appendChild(band);
+    }
+    if(m!=null){
+      const bar=document.createElement('div'); bar.className='bar';
+      bar.style.height=pct(m)+'%';
+      const val=document.createElement('div'); val.className='val';
+      val.textContent=Math.round(m);
+      bar.appendChild(val);
+      col.appendChild(bar);
+    }
+    chart.appendChild(col);
+  });
+  const setv=(id,v)=> document.getElementById(id).innerHTML =
+      (v==null?'—':v)+' <small>mm</small>';
+  setv('annuel', f.annuel_moyen);
+  setv('seche',  f.annee_seche_p10);
+  setv('humide', f.annee_humide_p90);
+  document.getElementById('winNote').textContent =
+      (winKey==='ref'?t('note_ref'):t('note_rec')) + (f.n_annees? '  ('+f.n_annees+' '+t('years_suffix')+')' : '');
+  document.querySelectorAll('#windows button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.w===winKey);
+  });
+}
+
+document.getElementById('windows').addEventListener('click',e=>{
+  const btn=e.target.closest('button'); if(!btn) return;
+  currentWin = btn.dataset.w;
+  render(currentWin); renderCuve();
+});
+
+// --- Villes (lat, lon) ---
+const VILLES = {
+  "Roma":[41.90,12.50], "Milano":[45.46,9.19], "Napoli":[40.85,14.27],
+  "Torino":[45.07,7.69], "Palermo":[38.12,13.36], "Genova":[44.41,8.93],
+  "Bologna":[44.49,11.34], "Firenze":[43.77,11.26], "Bari":[41.12,16.87],
+  "Catania":[37.50,15.09], "Venezia":[45.44,12.33], "Cagliari":[39.22,9.12],
+  "Trieste":[45.65,13.78], "Bolzano / Bozen":[46.50,11.35], "Perugia":[43.11,12.39],
+  "Reggio Calabria":[38.11,15.65], "Sassari":[40.73,8.56], "Pescara":[42.46,14.21],
+  "Lecce":[40.35,18.17], "Cortina d'Ampezzo":[46.54,12.14]
+};
+
+function haversine(la1,lo1,la2,lo2){
+  const R=6371, r=Math.PI/180;
+  const dla=(la2-la1)*r, dlo=(lo2-lo1)*r;
+  const a=Math.sin(dla/2)**2 + Math.cos(la1*r)*Math.cos(la2*r)*Math.sin(dlo/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+
+// point GPS -> point ERA5-Land le plus proche (tous terrestres : polygone Italie au pre-calcul)
+function findMaille(lat, lon){
+  let best=null, bd=Infinity;
+  for(const m of MAILLES){
+    const d=haversine(lat,lon,m.lat,m.lon);
+    if(d<bd){ bd=d; best=m; }
+  }
+  return best ? {maille:best, dist:bd} : {maille:null, dist:Infinity};
+}
+
+function setLoc(titre, sub){
+  document.getElementById('locInfo').innerHTML =
+    '<span class="pin">📍</span><span><b>'+titre+'</b>'+
+    (sub ? ' <small>· '+sub+'</small>' : '')+'</span>';
+}
+
+// commune de la POSITION exacte (en ligne) via Nominatim (OpenStreetMap) ; null si hors-ligne
+function reverseCommune(lat, lon){
+  const url='https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&accept-language='
+    +LANG+'&lat='+lat+'&lon='+lon;
+  return fetch(url,{headers:{'Accept':'application/json'}}).then(r=>r.json()).then(j=>{
+    const a=j.address||{};
+    const nom=a.city||a.town||a.village||a.municipality||a.county||j.name||'';
+    const sub=a.state||a.region||a.county||'';
+    return nom ? {nom, dep:sub} : null;
+  }).catch(()=>null);
+}
+
+let reqSeq = 0;
+function selectPoint(lat, lon, label){
+  const {maille, dist} = findMaille(lat, lon);
+  if(!maille) return;
+  JEU = maille.data;
+  document.getElementById('communeLine').textContent = '—';
+  document.getElementById('mailleId').textContent = 'ERA5-Land — '+maille.id;
+  const alt = (JEU.altitude_m!=null) ? ('  ·  '+JEU.altitude_m+' m') : '';
+  document.getElementById('mailleCoord').textContent =
+    maille.lat.toFixed(3)+', '+maille.lon.toFixed(3)+alt+'  ·  '+dist.toFixed(1)+' km';
+  document.getElementById('periode').textContent =
+    JEU.annees_disponibles[0]+' → '+JEU.annees_disponibles[1];
+  setLoc(label, lat.toFixed(3)+', '+lon.toFixed(3));
+  const myReq = ++reqSeq;
+  reverseCommune(lat, lon).then(res=>{
+    if(res && myReq === reqSeq){
+      setLoc(res.nom, res.dep);
+      document.getElementById('communeLine').textContent =
+        res.nom + (res.dep ? ' ('+res.dep+')' : '');
+    }
+  });
+  lastLat = lat; lastLon = lon;
+  if (map) updateMapMarker(lat, lon);
+  render(currentWin); renderCuve();
+}
+
+const sel=document.getElementById('ville');
+Object.keys(VILLES).forEach(name=>{
+  const o=document.createElement('option'); o.value=name; o.textContent=name; sel.appendChild(o);
+});
+sel.addEventListener('change',()=>{
+  const [la,lo]=VILLES[sel.value]; selectPoint(la,lo,sel.value);
+});
+
+document.getElementById('gpsBtn').addEventListener('click',()=>{
+  if(!navigator.geolocation){ alert(t('gps_no')); return; }
+  navigator.geolocation.getCurrentPosition(
+    p=>{ sel.selectedIndex=-1; selectPoint(p.coords.latitude, p.coords.longitude, t('loc_me')); },
+    e=>alert(t('gps_fail')(e.message)),
+    {enableHighAccuracy:true, timeout:10000}
+  );
+});
+
+// chargement du jeu Italie
+applyStatic();
+fetch('./normales_italie.json').then(r=>r.json()).then(data=>{
+  MAILLES = Object.entries(data).map(([id,d])=>({id, lat:d.lat, lon:d.lon, data:d}));
+  const tag=document.getElementById('dataTag');
+  tag.textContent=t('pts_tag')(MAILLES.length);
+  tag.style.background = '#d8f5e3'; tag.style.color = '#0b6e4f';
+  const def = VILLES["Roma"] ? "Roma" : Object.keys(VILLES)[0];
+  sel.value=def;
+  selectPoint(VILLES[def][0], VILLES[def][1], def);
+}).catch(e=>{
+  document.getElementById('locInfo').innerHTML =
+    '<span class="pin">⚠️</span><span>'+t('err_load')(e)+'</span>';
+});
+
+// ====================== Module dimensionnement de cuve ======================
+const KC = {
+  gazon_froid: [0.5, 0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.9, 0.8, 0.7, 0.6, 0.5],
+  gazon_chaud: [0.3, 0.3, 0.4, 0.5, 0.55,0.6,  0.65,0.65,0.6, 0.5, 0.4, 0.3],
+  potager:     [0,   0,   0.3, 0.5, 0.7, 0.9,  1.05,1.0, 0.7, 0.3, 0,   0  ],
+  massifs:     [0.2, 0.2, 0.3, 0.4, 0.5, 0.5,  0.5, 0.5, 0.4, 0.3, 0.2, 0.2],
+  verger:      [0,   0,   0.4, 0.6, 0.7, 0.8,  0.85,0.8, 0.6, 0.4, 0,   0  ],
+  oliviers:    [0.45,0.45,0.5, 0.55,0.6, 0.65, 0.65,0.65,0.6, 0.55,0.5, 0.45]
+};
+const PLANTE_KEYS = ['gazon_froid','gazon_chaud','potager','massifs','verger','oliviers'];
+function optionsHTML(){
+  const p = t('plantes');
+  return PLANTE_KEYS.map(k=>'<option value="'+k+'">'+p[k]+'</option>').join('');
+}
+
+function simulCuve(cap, apport, besoin){
+  let s = cap;
+  const niveaux = new Array(12).fill(0);
+  let livre = 0, demande = 0;
+  for(let c=0; c<6; c++){
+    for(let m=0; m<12; m++){
+      s = Math.min(cap, s + apport[m]);
+      const give = Math.min(besoin[m], s);
+      s -= give;
+      if(c===5){ niveaux[m] = s; livre += give; demande += besoin[m]; }
+    }
+  }
+  return {couverture: demande>0 ? livre/demande : 1, niveaux};
+}
+
+function dimensionne(apport, besoin){
+  const demAnn = besoin.reduce((a,b)=>a+b, 0);
+  if(demAnn <= 0) return {vol:0, couverture:1, limite:false, niveaux:new Array(12).fill(0)};
+  const recAnn = apport.reduce((a,b)=>a+b, 0);
+  const capMax = Math.max(demAnn, recAnn) * 1.5 + 1;
+  const N = 300, step = capMax / N;
+  const scan = [];
+  for(let k=0; k<=N; k++){ const cap = k*step; scan.push(Object.assign({cap}, simulCuve(cap, apport, besoin))); }
+  for(const e of scan){ if(e.couverture >= 0.99) return {vol:e.cap, couverture:e.couverture, limite:false, niveaux:e.niveaux}; }
+  const covMax = scan[scan.length-1].couverture;
+  for(const e of scan){ if(e.couverture >= covMax - 0.005) return {vol:e.cap, couverture:e.couverture, limite:true, niveaux:e.niveaux}; }
+  const last = scan[scan.length-1];
+  return {vol:last.cap, couverture:last.couverture, limite:true, niveaux:last.niveaux};
+}
+
+function fmtVol(v){ return v>=10 ? String(Math.round(v)) : String(Math.round(v*2)/2).replace('.', ','); }
+function fmtM3(v){ return (Math.round(v*10)/10).toFixed(1).replace('.', ',') + ' ' + t('m3_an'); }
+
+function niceStep(ymax){
+  const raw = ymax/4 || 1;
+  const pow = Math.pow(10, Math.floor(Math.log10(raw)));
+  const c = raw/pow, m = c>=5?5:(c>=2?2:1);
+  return (m*pow) || 1;
+}
+
+function renderFillChart(niveaux, cap){
+  const chart = document.getElementById('cuveChart');
+  chart.innerHTML = '';
+  const YMAX = Math.max(cap, ...niveaux, 0.1);
+  const step = niceStep(YMAX);
+  const pct = v => v/YMAX*100;
+  for(let g=0; g<=YMAX+1e-9; g+=step){
+    const line = document.createElement('div'); line.className='ygrid'; line.style.bottom=pct(g)+'%';
+    const lab = document.createElement('span'); lab.className='ylabel'; lab.style.bottom=pct(g)+'%';
+    lab.textContent = g>=10 ? Math.round(g) : Math.round(g*10)/10;
+    chart.appendChild(line); chart.appendChild(lab);
+  }
+  niveaux.forEach(n=>{
+    const col = document.createElement('div'); col.className='col';
+    const bar = document.createElement('div'); bar.className='bar'; bar.style.height=pct(n)+'%';
+    col.appendChild(bar); chart.appendChild(col);
+  });
+}
+
+function renderCuve(){
+  if(!JEU) return;
+  const f = JEU.fenetres[WIN[currentWin]];
+  const setTxt = (id,t)=>{ const el=document.getElementById(id); if(el) el.textContent=t; };
+  if(!f || !f.et0_moy){
+    document.getElementById('volReco').innerHTML = '—';
+    setTxt('covReco', t('et0_na'));
+    setTxt('covMoyen', '—'); setTxt('covSeche', '—');
+    setTxt('ctxRecup','—'); setTxt('ctxBesoin','—'); setTxt('ctxPeriode','—');
+    document.getElementById('cuveSecure').hidden = true;
+    document.getElementById('cuveLimite').hidden = true;
+    document.getElementById('cuveChart').innerHTML = '';
+    return;
+  }
+  const toit   = Math.max(0, +document.getElementById('cToit').value   || 0);
+  const coef   = +document.getElementById('cMat').value;
+  const zones = lireZones();
+  const et0 = f.et0_moy, moy = f.moy;
+  const ratioSec = (f.annee_seche_p10 && f.annuel_moyen) ? f.annee_seche_p10 / f.annuel_moyen : 1;
+  const pluieSec = moy.map(v => v==null ? 0 : v * ratioSec);
+
+  function scen(pluie){
+    const apport = [], besoin = [];
+    for(let m=0; m<12; m++){
+      const pl = (pluie[m]!=null) ? pluie[m] : 0;
+      const e0 = (et0[m]!=null)   ? et0[m]   : 0;
+      apport.push(pl * toit * coef / 1000);
+      let bm = 0;
+      for(const z of zones){
+        bm += Math.max(0, e0*z.kc[m] - pl) * z.surf / 1000;
+      }
+      besoin.push(bm);
+    }
+    return {apport, besoin};
+  }
+  const sMoy = scen(moy), sSec = scen(pluieSec);
+  const rMoy = dimensionne(sMoy.apport, sMoy.besoin);
+  const rSec = dimensionne(sSec.apport, sSec.besoin);
+  const reco = rMoy.vol;
+  const covNorm = rMoy.couverture;
+  const covSec  = simulCuve(reco, sSec.apport, sSec.besoin).couverture;
+
+  document.getElementById('volReco').innerHTML = fmtVol(reco)+' <small>m³</small>';
+  setTxt('covReco', covNorm >= 0.985 ? t('cov_full') : t('cov_part')(Math.round(covNorm*100)));
+  setTxt('covMoyen', Math.round(covNorm*100)+' %');
+  setTxt('covSeche', Math.round(covSec*100)+' %');
+  setTxt('ctxRecup',  fmtM3(sMoy.apport.reduce((a,b)=>a+b,0)));
+  setTxt('ctxBesoin', fmtM3(sMoy.besoin.reduce((a,b)=>a+b,0)));
+  setTxt('ctxPeriode', currentWin==='ref' ? '1995-2020' : t('recent_15'));
+
+  const sec = document.getElementById('cuveSecure');
+  const lim = document.getElementById('cuveLimite');
+  if(rSec.limite){
+    sec.hidden = true; lim.hidden = false;
+    setTxt('cuveLimiteTxt', t('lim_txt'));
+  } else if(rSec.vol > reco * 1.03){
+    lim.hidden = true; sec.hidden = false;
+    sec.innerHTML = t('secure')(fmtVol(rSec.vol));
+  } else {
+    sec.hidden = true; lim.hidden = true;
+  }
+
+  const persoEl = document.getElementById('cVolPerso');
+  const volPerso = Math.max(0, +persoEl.value || 0);
+  persoEl.placeholder = t('placeholder_vol')(fmtVol(reco));
+  const volAff = volPerso > 0 ? volPerso : reco;
+
+  const simRes = document.getElementById('cVolPersoRes');
+  const lg = document.getElementById('cuveLegend');
+  if(volPerso > 0){
+    const cAffNorm = simulCuve(volAff, sMoy.apport, sMoy.besoin).couverture;
+    const cAffSec  = simulCuve(volAff, sSec.apport, sSec.besoin).couverture;
+    simRes.hidden = false;
+    simRes.innerHTML = t('sim_res')(fmtVol(volPerso), Math.round(cAffNorm*100), Math.round(cAffSec*100));
+    lg.textContent = t('leg_perso')(fmtVol(volPerso));
+  } else {
+    simRes.hidden = true;
+    lg.textContent = t('leg_reco');
+  }
+
+  renderFillChart(simulCuve(volAff, sSec.apport, sSec.besoin).niveaux, volAff);
+}
+
+// --- Gestion des zones de culture ---
+const zonesBox = document.getElementById('cZones');
+function addZone(surf, type){
+  const row = document.createElement('div');
+  row.className = 'zone-row';
+  row.innerHTML =
+    '<input class="z-surf" type="number" inputmode="numeric" min="0" step="1" value="'+surf+'">'+
+    '<select class="z-type">'+optionsHTML()+'</select>'+
+    '<button class="z-del" type="button">✕</button>';
+  row.querySelector('.z-type').value = type;
+  zonesBox.appendChild(row);
+}
+function lireZones(){
+  return [...zonesBox.querySelectorAll('.zone-row')].map(row => ({
+    surf: Math.max(0, +row.querySelector('.z-surf').value || 0),
+    kc:   KC[row.querySelector('.z-type').value]
+  })).filter(z => z.surf > 0 && z.kc);
+}
+addZone(100, 'gazon_chaud');
+
+zonesBox.addEventListener('input', renderCuve);
+zonesBox.addEventListener('change', renderCuve);
+zonesBox.addEventListener('click', e=>{
+  const del = e.target.closest('.z-del'); if(!del) return;
+  if(zonesBox.querySelectorAll('.zone-row').length > 1) del.closest('.zone-row').remove();
+  renderCuve();
+});
+document.getElementById('cAddZone').addEventListener('click', ()=>{ addZone(50, 'potager'); renderCuve(); });
+
+document.getElementById('tabs').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  const tt = b.dataset.t;
+  document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('active', x===b));
+  document.getElementById('tabPluie').hidden = (tt!=='pluie');
+  document.getElementById('tabCuve').hidden  = (tt!=='cuve');
+  if(tt==='cuve') renderCuve();
+});
+['cToit','cMat','cVolPerso'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', renderCuve);
+});
+document.getElementById('cVolReset').addEventListener('click', ()=>{
+  document.getElementById('cVolPerso').value = ''; renderCuve();
+});
+
+// --- Carte interactive (Leaflet) ---
+let map = null, marker = null, lastLat = null, lastLon = null;
+const mapPanel = document.getElementById('mapPanel');
+const mapBtn = document.getElementById('mapBtn');
+function ensureMap(){
+  if (map) return;
+  map = L.map('map', {zoomControl:true}).setView([lastLat||42.5, lastLon||12.5], lastLat?11:5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18, attribution: '© OpenStreetMap'
+  }).addTo(map);
+  map.on('click', (e)=>{ sel.selectedIndex = -1; selectPoint(e.latlng.lat, e.latlng.lng, t('loc_map')); });
+}
+function updateMapMarker(lat, lon){
+  if (!map) return;
+  if (!marker){
+    marker = L.circleMarker([lat,lon], {radius:8, color:'#1c5fc4', weight:2,
+      fillColor:'#2f80ed', fillOpacity:0.6}).addTo(map);
+  } else { marker.setLatLng([lat,lon]); }
+}
+mapBtn.addEventListener('click', ()=>{
+  const show = mapPanel.hidden;
+  mapPanel.hidden = !show;
+  mapBtn.textContent = show ? t('map_close') : t('map_open');
+  if (show){
+    ensureMap();
+    setTimeout(()=>{
+      map.invalidateSize();
+      if (lastLat!=null){ map.setView([lastLat,lastLon], 11); updateMapMarker(lastLat,lastLon); }
+    }, 60);
+  }
+});
+
+// --- PWA : service worker ---
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{ navigator.serviceWorker.register('./sw.js').catch(()=>{}); });
+  navigator.serviceWorker.addEventListener('controllerchange', ()=> window.location.reload());
+}
+// --- PWA : bouton d'installation (Android/Chrome) ---
+let deferredPrompt=null;
+const installBtn=document.getElementById('installBtn');
+window.addEventListener('beforeinstallprompt',(e)=>{ e.preventDefault(); deferredPrompt=e; installBtn.hidden=false; });
+installBtn.addEventListener('click',async()=>{
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt(); await deferredPrompt.userChoice;
+  deferredPrompt=null; installBtn.hidden=true;
+});
+window.addEventListener('appinstalled',()=>{ installBtn.hidden=true; });
+
+// --- Aide installation iOS ---
+(function(){
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) && 'standalone' in navigator;
+  const installed = navigator.standalone === true ||
+                    window.matchMedia('(display-mode: standalone)').matches;
+  const dismissed = localStorage.getItem('iosHintDismissed') === '1';
+  if (isIOS && !installed && !dismissed){
+    const hint = document.getElementById('iosHint');
+    hint.hidden = false;
+    document.getElementById('iosHintClose').addEventListener('click', function(){
+      hint.hidden = true;
+      try { localStorage.setItem('iosHintDismissed', '1'); } catch(e){}
+    });
+  }
+})();
+</script>
+</body>
+</html>

@@ -7,6 +7,8 @@ docs/ajaccio.json
 # Python
 __pycache__/
 *.pyc
+.venv/
+venv/
 
 # Divers
 .DS_Store
