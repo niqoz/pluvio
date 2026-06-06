@@ -374,10 +374,11 @@
       Méthode de Rippl (bilan mensuel). Besoin d'arrosage = évapotranspiration de chaque
       culture (ET0 × coefficient cultural) moins la pluie ; le besoin est calculé par
       culture puis additionné. L'hiver tombe naturellement à zéro (pause végétative).
-      En été, les espèces résistantes à la sécheresse (kikuyu, oliviers/agrumes, massifs
-      méditerranéens) sont calculées en mode survie — arrosage réduit : elles jaunissent
-      puis repartent aux pluies — ce qui évite de surdimensionner la cuve ; le gazon
-      classique, le potager et le verger restent arrosés à 100 %. En zone méditerranéenne,
+      En été, les espèces résistantes à la sécheresse (kikuyu, oliviers/figuiers rustiques,
+      massifs méditerranéens) sont calculées en mode survie — arrosage réduit : elles
+      jaunissent puis repartent aux pluies — ce qui évite de surdimensionner la cuve ; le
+      gazon classique, le potager, le verger et les <strong>agrumes/oliviers productifs
+      irrigués</strong> restent arrosés à 100 %. En zone méditerranéenne,
       choisir « Kikuyu / gazon chaud » : il consomme ~30 % de moins qu'un gazon classique.
       Le volume conseillé couvre l'arrosage en traversant la saison sèche.
     </div>
@@ -588,14 +589,17 @@ fetch('./normales_france.json').then(r=>r.json()).then(data=>{
 // L'hiver est ~0 pour les cultures a pause vegetative -> besoin nul automatique.
 // gazon_froid = graminees C3 (fetuque, ray-grass : Nord/tempere) ; gazon_chaud = C4
 // (kikuyu, bermuda : Sud/Corse) ~30% plus econome. oliviers = persistant mediterraneen
-// tres resistant a la secheresse (olivier/figuier/agrumes), Kc ~0,6-0,65.
+// rustique NON irrigue (olivier/figuier sec), Kc ~0,6-0,65, conduit en survie l'ete.
+// agrumes = arbres mediterraneens PRODUCTIFS irrigues a fond (clementine plaine orientale,
+// olivier de production) : Kc ~0,70, arrosage plein toute la saison (pas de deficit).
 const KC = {
   gazon_froid: [0.5, 0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.9, 0.8, 0.7, 0.6, 0.5],
   gazon_chaud: [0.3, 0.3, 0.4, 0.5, 0.55,0.6,  0.65,0.65,0.6, 0.5, 0.4, 0.3],
   potager:     [0,   0,   0.3, 0.5, 0.7, 0.9,  1.05,1.0, 0.7, 0.3, 0,   0  ],
   massifs:     [0.2, 0.2, 0.3, 0.4, 0.5, 0.5,  0.5, 0.5, 0.4, 0.3, 0.2, 0.2],
   verger:      [0,   0,   0.4, 0.6, 0.7, 0.8,  0.85,0.8, 0.6, 0.4, 0,   0  ],
-  oliviers:    [0.45,0.45,0.5, 0.55,0.6, 0.65, 0.65,0.65,0.6, 0.55,0.5, 0.45]
+  oliviers:    [0.45,0.45,0.5, 0.55,0.6, 0.65, 0.65,0.65,0.6, 0.55,0.5, 0.45],
+  agrumes:     [0.6, 0.6, 0.65,0.65,0.7, 0.7,  0.7, 0.7, 0.7, 0.65,0.65,0.6 ]
 };
 // Survie estivale (Juin->Sep) : especes resistantes a la secheresse qui se mettent
 // en veille l'ete (jaunissent mais survivent). On ne vise qu'une ration de survie au
@@ -607,7 +611,8 @@ const KS_ETE = {
   potager:     1,
   massifs:     0.50,   // arbustes mediterraneens etablis
   verger:      1,      // on arrose pour la fructification
-  oliviers:    0.35    // olivier/figuier/agrumes etablis : tres sobres
+  oliviers:    0.35,   // olivier/figuier rustique sec etabli : tres sobre
+  agrumes:     1       // agrumes/oliviers PRODUCTIFS irrigues : arrosage plein pour le fruit
 };
 const MOIS_ETE = [5,6,7,8]; // Juin, Juillet, Aout, Septembre (index 0-based)
 // Options du selecteur de culture (libelle affiche par type)
@@ -617,7 +622,8 @@ const PLANTE_OPTIONS = [
   ['potager',     'Potager'],
   ['massifs',     'Massifs / arbustes'],
   ['verger',      'Verger / fruitiers irrigués'],
-  ['oliviers',    'Oliviers / figuiers / agrumes']
+  ['oliviers',    'Oliviers / figuiers (rustiques, non irrigués)'],
+  ['agrumes',     'Agrumes / oliviers productifs (irrigués)']
 ];
 
 // Simulation mensuelle d'une cuve de capacite cap (m3), en regime etabli.
