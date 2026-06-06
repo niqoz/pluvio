@@ -375,10 +375,11 @@
       culture (ET0 × coefficient cultural) moins la pluie ; le besoin est calculé par
       culture puis additionné. L'hiver tombe naturellement à zéro (pause végétative).
       En été, les espèces résistantes à la sécheresse (kikuyu, oliviers/figuiers rustiques,
-      massifs méditerranéens) sont calculées en mode survie — arrosage réduit : elles
-      jaunissent puis repartent aux pluies — ce qui évite de surdimensionner la cuve ; le
-      gazon classique, le potager, le verger et les <strong>agrumes/oliviers productifs
-      irrigués</strong> restent arrosés à 100 %. En zone méditerranéenne,
+      massifs et aromatiques méditerranéennes type lavande/thym) sont calculées en mode
+      survie — arrosage réduit : elles jaunissent puis repartent aux pluies — ce qui évite
+      de surdimensionner la cuve ; le gazon classique, le potager, les fleurs/aromatiques
+      tendres, le verger et les <strong>agrumes/oliviers productifs irrigués</strong>
+      restent arrosés à 100 %. En zone méditerranéenne,
       choisir « Kikuyu / gazon chaud » : il consomme ~30 % de moins qu'un gazon classique.
       Le volume conseillé couvre l'arrosage en traversant la saison sèche.
     </div>
@@ -597,6 +598,8 @@ const KC = {
   gazon_chaud: [0.3, 0.3, 0.4, 0.5, 0.55,0.6,  0.65,0.65,0.6, 0.5, 0.4, 0.3],
   potager:     [0,   0,   0.3, 0.5, 0.7, 0.9,  1.05,1.0, 0.7, 0.3, 0,   0  ],
   massifs:     [0.2, 0.2, 0.3, 0.4, 0.5, 0.5,  0.5, 0.5, 0.4, 0.3, 0.2, 0.2],
+  aromatiques_med:[0.2,0.2,0.25,0.3,0.35,0.35, 0.35,0.35,0.3, 0.3, 0.25,0.2], // lavande/thym/romarin : garrigue, aiment le sec
+  fleurs:      [0,   0,   0.4, 0.6, 0.8, 0.9,  0.95,0.9, 0.7, 0.4, 0,   0  ], // massif fleuri/basilic : gourmand comme potager
   verger:      [0,   0,   0.4, 0.6, 0.7, 0.8,  0.85,0.8, 0.6, 0.4, 0,   0  ],
   oliviers:    [0.45,0.45,0.5, 0.55,0.6, 0.65, 0.65,0.65,0.6, 0.55,0.5, 0.45],
   agrumes:     [0.6, 0.6, 0.65,0.65,0.7, 0.7,  0.7, 0.7, 0.7, 0.65,0.65,0.6 ]
@@ -610,6 +613,8 @@ const KS_ETE = {
   gazon_chaud: 0.40,   // kikuyu/bermuda : brunit puis reverdit aux pluies d'automne
   potager:     1,
   massifs:     0.50,   // arbustes mediterraneens etablis
+  aromatiques_med: 0.40, // lavande/thym/romarin : tres resistants au sec, conduits en survie
+  fleurs:      1,      // massif fleuri/aromatiques tendres : pas de tolerance secheresse -> plein
   verger:      1,      // on arrose pour la fructification
   oliviers:    0.35,   // olivier/figuier rustique sec etabli : tres sobre
   agrumes:     1       // agrumes/oliviers PRODUCTIFS irrigues : arrosage plein pour le fruit
@@ -621,6 +626,8 @@ const PLANTE_OPTIONS = [
   ['gazon_chaud', 'Kikuyu / gazon chaud (Sud, Corse)'],
   ['potager',     'Potager'],
   ['massifs',     'Massifs / arbustes'],
+  ['aromatiques_med', 'Aromatiques méditerranéennes (lavande, thym, romarin)'],
+  ['fleurs',      'Fleurs / aromatiques tendres (massif fleuri, basilic)'],
   ['verger',      'Verger / fruitiers irrigués'],
   ['oliviers',    'Oliviers / figuiers (rustiques, non irrigués)'],
   ['agrumes',     'Agrumes / oliviers productifs (irrigués)']
