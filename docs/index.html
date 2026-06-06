@@ -374,9 +374,12 @@
       Méthode de Rippl (bilan mensuel). Besoin d'arrosage = évapotranspiration de chaque
       culture (ET0 × coefficient cultural) moins la pluie ; le besoin est calculé par
       culture puis additionné. L'hiver tombe naturellement à zéro (pause végétative).
-      En zone méditerranéenne, choisir « Kikuyu / gazon chaud » : il consomme ~30 % de
-      moins qu'un gazon classique. Le volume conseillé couvre l'arrosage en traversant
-      la saison sèche.
+      En été, les espèces résistantes à la sécheresse (kikuyu, oliviers/agrumes, massifs
+      méditerranéens) sont calculées en mode survie — arrosage réduit : elles jaunissent
+      puis repartent aux pluies — ce qui évite de surdimensionner la cuve ; le gazon
+      classique, le potager et le verger restent arrosés à 100 %. En zone méditerranéenne,
+      choisir « Kikuyu / gazon chaud » : il consomme ~30 % de moins qu'un gazon classique.
+      Le volume conseillé couvre l'arrosage en traversant la saison sèche.
     </div>
   </div><!-- /tabCuve -->
 
@@ -594,6 +597,19 @@ const KC = {
   verger:      [0,   0,   0.4, 0.6, 0.7, 0.8,  0.85,0.8, 0.6, 0.4, 0,   0  ],
   oliviers:    [0.45,0.45,0.5, 0.55,0.6, 0.65, 0.65,0.65,0.6, 0.55,0.5, 0.45]
 };
+// Survie estivale (Juin->Sep) : especes resistantes a la secheresse qui se mettent
+// en veille l'ete (jaunissent mais survivent). On ne vise qu'une ration de survie au
+// lieu de couvrir 100% du deficit -> cuve plus realiste, moins surdimensionnee.
+// gazon_froid / potager / verger NON concernes (ils souffrent vraiment) -> 1.
+const KS_ETE = {
+  gazon_froid: 1,
+  gazon_chaud: 0.40,   // kikuyu/bermuda : brunit puis reverdit aux pluies d'automne
+  potager:     1,
+  massifs:     0.50,   // arbustes mediterraneens etablis
+  verger:      1,      // on arrose pour la fructification
+  oliviers:    0.35    // olivier/figuier/agrumes etablis : tres sobres
+};
+const MOIS_ETE = [5,6,7,8]; // Juin, Juillet, Aout, Septembre (index 0-based)
 // Options du selecteur de culture (libelle affiche par type)
 const PLANTE_OPTIONS = [
   ['gazon_froid', 'Gazon classique (ray-grass, fétuque)'],
@@ -713,7 +729,9 @@ function renderCuve(){
       apport.push(pl * toit * coef / 1000);
       let bm = 0;
       for(const z of zones){
-        bm += Math.max(0, e0*z.kc[m] - pl) * z.surf / 1000;  // mm a arroser × surface
+        // ete : ration de survie pour les especes resistantes (ksEte<1) ; sinon 100%
+        const ke = MOIS_ETE.includes(m) ? (z.ksEte || 1) : 1;
+        bm += Math.max(0, e0*z.kc[m]*ke - pl) * z.surf / 1000;  // mm a arroser × surface
       }
       besoin.push(bm);
     }
@@ -804,8 +822,9 @@ function addZone(surf, type){
 // lit toutes les zones saisies -> [{ surf (m2), kc[12] }], en ignorant surface 0
 function lireZones(){
   return [...zonesBox.querySelectorAll('.zone-row')].map(row => ({
-    surf: Math.max(0, +row.querySelector('.z-surf').value || 0),
-    kc:   KC[row.querySelector('.z-type').value]
+    surf:  Math.max(0, +row.querySelector('.z-surf').value || 0),
+    kc:    KC[row.querySelector('.z-type').value],
+    ksEte: KS_ETE[row.querySelector('.z-type').value]
   })).filter(z => z.surf > 0 && z.kc);
 }
 

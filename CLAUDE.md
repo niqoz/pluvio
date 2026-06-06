@@ -76,20 +76,21 @@ Par maille (clé = `"LAMBX_LAMBY"`) :
 - **Deux onglets** : « Pluie » (histogramme des cumuls mensuels) et « Cuve » (dimensionnement RWH).
 - **findMaille** : plus proche voisin haversine, **privilégie les mailles avec commune** (évite les carrés maritimes près des côtes).
 - **Commune position** : appel `geo.api.gouv.fr/communes?lat=&lon=` au clic (en ligne) ; fallback offline = commune du carré embarquée.
-- **Service worker** : network-first. Incrémenter `const CACHE = "pluvio-rwh-vN"` à chaque mise à jour pour forcer le rechargement (actuellement **v17**).
+- **Service worker** : network-first. Incrémenter `const CACHE = "pluvio-rwh-vN"` à chaque mise à jour pour forcer le rechargement (actuellement **v20**).
 - **Histogramme pluie** : échelle verticale **commune** aux 2 fenêtres (ref + récente) pour comparer sans illusion d'optique.
 - **Aide iOS** : bandeau auto si iPhone/iPad non installé. Détection = `/iP(hone|ad|od)/.test(UA) && 'standalone' in navigator` (double garde, sinon faux positifs Android). Fermeture mémorisée en `localStorage` (`iosHintDismissed`). ⚠️ Piège résolu : `.ioshint` avait `display:flex` qui écrasait l'attribut `hidden` → bandeau impossible à masquer ; corrigé par `.ioshint[hidden]{display:none}`. iPad récent non détecté (Safari se déclare « Macintosh »).
 - **Vérifier la version** : étiquette footer affiche `"N carrés · M communes"` ; 0 communes = ancien cache.
 
 ### Onglet Cuve (module dimensionnement)
 
-- **Méthode** : bilan mensuel de Rippl. Apport toit = `pluie × surface × coef_ruissellement / 1000` (m³). Besoin = `max(0, ET0×Kc − pluie) × surface / 1000`, **calculé par culture puis additionné** (Kc différents → netting pluie par zone).
+- **Méthode** : bilan mensuel de Rippl. Apport toit = `pluie × surface × coef_ruissellement / 1000` (m³). Besoin = `max(0, ET0×Kc×Ksété − pluie) × surface / 1000`, **calculé par culture puis additionné** (Kc différents → netting pluie par zone).
 - **Cultures multiples** : zones répétables (`#cZones`, fn `addZone`/`lireZones`), chacune surface + type. Bouton « ＋ Ajouter une culture », ✕ pour retirer (min. 1).
 - **Types Kc** (`const KC`) : `gazon_froid` (C3, pic 0,9), `gazon_chaud` (C4 kikuyu/bermuda, pic 0,65, **défaut** car cible Corse/Med), `potager` (pic 1,05), `massifs` (0,2-0,5), `verger` (pic 0,85), `oliviers` (persistant méditerranéen ~0,65).
+- **Survie estivale** (`const KS_ETE`, mois `MOIS_ETE = [5,6,7,8]` = juin→sept.) : les espèces résistantes à la sécheresse se mettent en veille l'été (jaunissent mais survivent), donc on ne couvre qu'une **ration de survie** au lieu de 100 % du déficit → `oliviers 0,35`, `gazon_chaud 0,40`, `massifs 0,50` ; `gazon_froid`/`potager`/`verger = 1` (ils souffrent vraiment, arrosage plein). Appliqué **par espèce, automatiquement** (pas de réglage UI), documenté dans la note de méthode. ⚠️ Gros effet sur les climats à été sec : Ajaccio 100 m² toit + 100 m² oliviers passe de **20,7 → 2,8 m³** de cuve conseillée (olivier établi ≈ non irrigué en med). Choix de design : automatique par espèce (juin 2026).
 - **Année sèche** : `pluieSec = moy × (annee_seche_p10 / annuel_moyen)` — PAS la somme des p10 mensuels (piège §10.7).
 - **Volume conseillé** = plus petite cuve atteignant ~99 % de couverture année normale. Si la toiture ne suffit jamais → plateau `covMax` + bandeau « ⚠ Limité par la toiture » (une cuve plus grande resterait vide). ⚠️ Conséquence contre-intuitive : une toiture peu collectante (végétalisée 0,4) peut **réduire** le volume conseillé tout en **abaissant la couverture** → lire le trio volume + couverture % + bandeau, pas le volume seul.
 - **Tester une autre capacité** (`#cVolPerso`, bouton ↺) : saisir un volume réel → courbe de niveau + couvertures recalculées pour CE volume.
-- **Limites connues** (rapport de vérif, juin 2026) : cible 99 % → cuves démesurées en climat à été sec (stockage saisonnier ; ex. Ajaccio 100 m² toit + 100 m² gazon froid → 31,5 m³). Biais optimistes mineurs : pluie **brute** au lieu d'efficace (FAO), pas de rendement filtre ~0,9, ET0 non rehaussée en année sèche.
+- **Limites connues** (rapport de vérif, juin 2026) : cible 99 % → cuves démesurées en climat à été sec (stockage saisonnier ; ex. Ajaccio 100 m² toit + 100 m² gazon froid → 31,5 m³ ; **gazon froid non concerné par la survie estivale**, Ks=1). Biais optimistes mineurs : pluie **brute** au lieu d'efficace (FAO), pas de rendement filtre ~0,9, ET0 non rehaussée en année sèche. La survie estivale `KS_ETE` corrige le **sur**-dimensionnement des espèces méditerranéennes résistantes (oliviers/kikuyu/massifs), pas des cultures à arrosage plein.
 
 ## Déploiement
 
@@ -98,9 +99,11 @@ Par maille (clé = `"LAMBX_LAMBY"`) :
 - GitHub Pages sert `main /docs`. Redéploiement ~1 min après `git push`.
 - Git user local : `niqoz / niqoz@users.noreply.github.com` (pas de config globale sur la machine d'origine).
 
-## Italpluvio (déclinaison Italie, `docs/it/`)
+## Italpluvio (déclinaison Italie — repo séparé `../italpluvio`)
 
-Clone de Pluvio couvrant **l'Italie**, servi sur `niqoz.github.io/pluvio/it/`. Même app, même module cuve, même méthode ; seule la **source de données** change.
+⚠️ **Emplacement réel** : Italpluvio vit dans un **repo git distinct** : `/home/niqo/Projets/italpluvio` (github.com/niqoz/italpluvio), servi sur `niqoz.github.io/italpluvio/`. C'est la **seule** version. L'ancienne copie périmée `docs/it/` (servie sur `/pluvio/it/`) a été **supprimée** (juin 2026) ; toute modif du module cuve Italie va dans **`../italpluvio/docs/`**.
+
+Clone de Pluvio couvrant **l'Italie**. Même app, même module cuve, même méthode ; seule la **source de données** change.
 
 **Source des données (le jeu publié vient de CDS) :** réanalyse **ERA5-Land** (Copernicus, ~9 km), pas de SAFRAN (franco-français). Deux pipelines existent :
 
