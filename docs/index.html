@@ -348,7 +348,10 @@
       <div class="row"><span>Besoin d'arrosage estimé</span><b id="ctxBesoin">—</b></div>
       <div class="row" style="border:none"><span>Période climatique utilisée</span><b id="ctxPeriode">—</b></div>
       <div class="row gain-row" id="ctxGainRow" hidden>
-        <span>Économie annuelle estimée (année normale)</span><b id="ctxGain">—</b>
+        <span>Économie cuve (année normale)</span><b id="ctxGain">—</b>
+      </div>
+      <div class="row gain-row" id="ctxNetRow" hidden style="background:#fff8ec;border-color:#f3e2c0">
+        <span>Budget arrosage net (reste réseau)</span><b id="ctxNet" style="color:#b06000">—</b>
       </div>
     </div>
 
@@ -780,13 +783,19 @@ function renderCuve(){
   // gain financier : volume couvert × prix du m³
   const prix = Math.max(0, +document.getElementById('cPrixM3').value || 0);
   const gainRow = document.getElementById('ctxGainRow');
+  const netRow  = document.getElementById('ctxNetRow');
   if(prix > 0){
-    const volCouvert = sMoy.besoin.reduce((a,b)=>a+b,0) * covNorm;
+    const besoinAnn  = sMoy.besoin.reduce((a,b)=>a+b,0);
+    const volCouvert = besoinAnn * covNorm;
     const gain = Math.round(volCouvert * prix);
+    const net  = Math.round((besoinAnn - volCouvert) * prix);
     setTxt('ctxGain', '~ ' + gain.toLocaleString('fr-FR') + ' €/an');
+    setTxt('ctxNet',  '~ ' + net.toLocaleString('fr-FR')  + ' €/an');
     gainRow.hidden = false;
+    netRow.hidden  = false;
   } else {
     gainRow.hidden = true;
+    netRow.hidden  = true;
   }
 
   // ligne "securiser l'annee seche" OU avertissement toiture limitante
