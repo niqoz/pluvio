@@ -190,6 +190,8 @@
   .cuve-ctx{padding:10px 16px 2px;font-size:11.5px;color:var(--muted);line-height:1.6}
   .cuve-ctx .row{display:flex;justify-content:space-between;border-bottom:1px dashed var(--line);padding:3px 0}
   .cuve-ctx .row b{color:var(--ink);font-weight:600}
+  .cuve-ctx .gain-row{border-bottom:none;background:#eef7f2;border:1px solid #cfe8dc;border-radius:8px;padding:6px 10px;margin-top:6px}
+  .cuve-ctx .gain-row b{color:#1a7a4a;font-size:15px;font-weight:800}
   .cuve-note{margin:6px 16px 2px;font-size:11px;color:var(--muted);line-height:1.5}
   .vol-reset{flex:none;width:44px;border:1px solid var(--line);border-radius:10px;
     background:#f6f9fc;font-size:17px;color:var(--muted);cursor:pointer}
@@ -314,6 +316,10 @@
         <div id="cZones"></div>
         <button id="cAddZone" type="button" class="add-zone">＋ Ajouter une culture</button>
       </div>
+      <div class="field" style="margin-top:8px;margin-bottom:4px">
+        <label>Prix du m³ facturé par le distributeur — optionnel (€/m³)</label>
+        <input id="cPrixM3" type="number" inputmode="decimal" min="0" step="0.01" placeholder="ex : 3,50">
+      </div>
     </div>
 
     <div class="cuve-res">
@@ -341,6 +347,9 @@
       <div class="row"><span>Eau récupérable sur le toit</span><b id="ctxRecup">—</b></div>
       <div class="row"><span>Besoin d'arrosage estimé</span><b id="ctxBesoin">—</b></div>
       <div class="row" style="border:none"><span>Période climatique utilisée</span><b id="ctxPeriode">—</b></div>
+      <div class="row gain-row" id="ctxGainRow" hidden>
+        <span>Économie annuelle estimée (année normale)</span><b id="ctxGain">—</b>
+      </div>
     </div>
 
     <div class="warn-box" id="cuveLimite" hidden>
@@ -768,6 +777,18 @@ function renderCuve(){
   setTxt('ctxBesoin', fmtM3(sMoy.besoin.reduce((a,b)=>a+b,0)));
   setTxt('ctxPeriode', currentWin==='ref' ? '1995-2020' : '15 dernières années');
 
+  // gain financier : volume couvert × prix du m³
+  const prix = Math.max(0, +document.getElementById('cPrixM3').value || 0);
+  const gainRow = document.getElementById('ctxGainRow');
+  if(prix > 0){
+    const volCouvert = sMoy.besoin.reduce((a,b)=>a+b,0) * covNorm;
+    const gain = Math.round(volCouvert * prix);
+    setTxt('ctxGain', '~ ' + gain.toLocaleString('fr-FR') + ' €/an');
+    gainRow.hidden = false;
+  } else {
+    gainRow.hidden = true;
+  }
+
   // ligne "securiser l'annee seche" OU avertissement toiture limitante
   const sec = document.getElementById('cuveSecure');
   const lim = document.getElementById('cuveLimite');
@@ -866,7 +887,7 @@ document.getElementById('tabs').addEventListener('click', e=>{
   if(t==='cuve') renderCuve();
 });
 // recalcul en direct quand on modifie une entree
-['cToit','cMat','cVolPerso'].forEach(id=>{
+['cToit','cMat','cVolPerso','cPrixM3'].forEach(id=>{
   document.getElementById(id).addEventListener('input', renderCuve);
 });
 document.getElementById('cVolReset').addEventListener('click', ()=>{
