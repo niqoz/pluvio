@@ -219,6 +219,20 @@
   .add-zone{width:100%;border:1px dashed #b9d4f5;border-radius:10px;padding:9px;
     background:#f6f9fc;color:var(--bar);font-weight:600;font-size:12.5px;cursor:pointer}
   .add-zone:active{background:#eaf2fe}
+  /* ── Layout bureau (≥ 768 px) ──────────────────────────────── */
+  @media (min-width:768px){
+    body{ padding:24px 32px; }
+    .phone{ max-width:1080px; }
+    #map{ height:360px; }
+    .chart{ height:320px; }
+    .tab-layout{
+      display:grid;
+      grid-template-columns:300px 1fr;
+      align-items:stretch;
+    }
+    .tab-left{ grid-column:1; grid-row:1; border-right:1px solid var(--line); }
+    .tab-right{ grid-column:2; grid-row:1; }
+  }
 </style>
 </head>
 <body>
@@ -248,6 +262,9 @@
   </div>
 
   <div id="tabPluie">
+  <div class="tab-layout">
+
+  <div class="tab-right">
   <div class="windows" id="windows">
     <button data-w="ref" class="active"><span class="big">1995→2020</span>Période de référence</button>
     <button data-w="recente"><span class="big">15 dern. ans</span>Climat récent</button>
@@ -283,7 +300,9 @@
       </div>
     </div>
   </div>
+  </div><!-- /tab-right -->
 
+  <div class="tab-left">
   <div class="meta">
     <div class="row"><span>Commune du carré</span><b id="communeLine">—</b></div>
     <div class="row"><span>Carré météo utilisé</span><b id="mailleId">SAFRAN 8 km</b></div>
@@ -297,9 +316,15 @@
     Le carré mesure 8 km : en relief marqué (Corse), la pluie réelle de votre toit
     peut différer. C'est une moyenne longue durée très fiable, pas un pluviomètre sur site.
   </div>
+  </div><!-- /tab-left -->
+
+  </div><!-- /tab-layout -->
   </div><!-- /tabPluie -->
 
   <div id="tabCuve" hidden>
+  <div class="tab-layout">
+
+  <div class="tab-left">
     <div class="cuve-form">
       <div class="field">
         <label>Surface de toit collectée (m²)</label>
@@ -323,7 +348,9 @@
         <input id="cPrixM3" type="number" inputmode="decimal" min="0" step="0.01" placeholder="ex : 3,50">
       </div>
     </div>
+  </div><!-- /tab-left -->
 
+  <div class="tab-right">
     <div class="cuve-res">
       <div class="reco-head">
         <span class="k">Volume de cuve conseillé</span>
@@ -397,6 +424,9 @@
       choisir « Kikuyu / gazon chaud » : il consomme ~30 % de moins qu'un gazon classique.
       Le volume conseillé couvre l'arrosage en traversant la saison sèche.
     </div>
+  </div><!-- /tab-right -->
+
+  </div><!-- /tab-layout -->
   </div><!-- /tabCuve -->
 
   <footer>
