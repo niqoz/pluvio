@@ -16,7 +16,7 @@
 <style>
   :root{
     --bg:#eef3f8; --card:#ffffff; --ink:#1f2d3d; --muted:#6b7c93;
-    --bar:#2f80ed; --bar2:#9cc3f7; --band:rgba(47,128,237,.14);
+    --bar:#2f80ed; --bar2:#9cc3f7; --band:rgba(47,128,237,.18); --band-dry:rgba(210,100,0,.24);
     --accent:#0b6e4f; --warn:#b9770e; --line:#e3eaf2;
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -111,6 +111,7 @@
     font-size:9px;color:var(--muted);background:var(--card);padding:0 2px}
   .col{position:relative;flex:1;height:100%;display:flex;align-items:flex-end;z-index:1}
   .band{position:absolute;left:18%;right:18%;background:var(--band);border-radius:3px}
+  .band-dry{position:absolute;left:18%;right:18%;background:var(--band-dry);border-radius:3px 3px 0 0}
   .bar{
     position:relative;width:100%;
     background:linear-gradient(180deg,var(--bar),#2566c4);
@@ -261,7 +262,8 @@
     </div>
     <div class="legend">
       <span><i style="background:var(--bar)"></i>Pluie moyenne (mm)</span>
-      <span><i style="background:var(--band)"></i>Année sèche → humide</span>
+      <span><i style="background:var(--band)"></i>Année humide (P90)</span>
+      <span><i style="background:var(--band-dry)"></i>Année sèche (P10)</span>
     </div>
   </div>
 
@@ -452,10 +454,11 @@ function render(winKey){
   }
   moy.forEach((m,i)=>{
     const col=document.createElement('div'); col.className='col';
-    if(p10[i]!=null && p90[i]!=null){
-      const band=document.createElement('div'); band.className='band';
-      band.style.bottom=pct(p10[i])+'%'; band.style.height=pct(p90[i]-p10[i])+'%';
-      col.appendChild(band);
+    if(p10[i]!=null && p90[i]!=null && m!=null){
+      // zone humide (moy→P90) : bleu pâle, devant la barre (elle dépasse au-dessus)
+      const bandWet=document.createElement('div'); bandWet.className='band';
+      bandWet.style.bottom=pct(m)+'%'; bandWet.style.height=pct(p90[i]-m)+'%';
+      col.appendChild(bandWet);
     }
     if(m!=null){
       const bar=document.createElement('div'); bar.className='bar';
@@ -464,6 +467,12 @@ function render(winKey){
       val.textContent=Math.round(m);
       bar.appendChild(val);
       col.appendChild(bar);
+    }
+    if(p10[i]!=null && m!=null){
+      // zone sèche (P10→moy) : ambre, dessinée après la barre → s'affiche par-dessus
+      const bandDry=document.createElement('div'); bandDry.className='band-dry';
+      bandDry.style.bottom=pct(p10[i])+'%'; bandDry.style.height=pct(m-p10[i])+'%';
+      col.appendChild(bandDry);
     }
     chart.appendChild(col);
   });
