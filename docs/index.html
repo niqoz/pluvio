@@ -109,11 +109,11 @@
   .ygrid{position:absolute;left:0;right:0;height:1px;background:var(--line);z-index:0}
   .ylabel{position:absolute;left:-2px;transform:translateY(-50%);
     font-size:9px;color:var(--muted);background:var(--card);padding:0 2px}
-  .col{position:relative;flex:1;height:100%;display:flex;align-items:flex-end;z-index:1}
-  .band{position:absolute;left:18%;right:18%;background:var(--band);border-radius:3px}
-  .band-dry{position:absolute;left:18%;right:18%;background:var(--band-dry);border-radius:3px 3px 0 0}
+  .col{position:relative;flex:1;height:100%;display:flex;align-items:flex-end;justify-content:center;z-index:1}
+  .band{position:absolute;left:0;right:0;background:var(--band);border-radius:3px}
+  .band-dry{position:absolute;left:0;right:0;background:var(--band-dry);border-radius:3px 3px 0 0}
   .bar{
-    position:relative;width:100%;
+    position:relative;width:65%;
     background:linear-gradient(180deg,#7a99b8,#5a7a9a);
     border-radius:4px 4px 0 0;transition:height .4s ease;
   }
