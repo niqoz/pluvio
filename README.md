@@ -28,6 +28,7 @@ Architecture **données pré-calculées + app cliente légère** :
 - `docs/` : la PWA (HTML/JS, Chart maison, carte Leaflet). Servie par GitHub Pages.
   Fonctionne **hors-ligne** une fois installée (service worker). 3 modes de localisation :
   GPS, sélecteur de villes, carte interactive.
+  **Responsive** : mise en page 2 colonnes automatique sur navigateur bureau (≥ 768 px).
 
 ### Module cuve
 
