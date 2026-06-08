@@ -16,7 +16,7 @@
 <style>
   :root{
     --bg:#eef3f8; --card:#ffffff; --ink:#1f2d3d; --muted:#6b7c93;
-    --bar:#2f80ed; --bar2:#9cc3f7; --band:rgba(47,128,237,.18); --band-dry:rgba(210,100,0,.24);
+    --bar:#2f80ed; --bar2:#9cc3f7; --band:rgba(210,100,0,.22); --band-dry:rgba(47,128,237,.28);
     --accent:#0b6e4f; --warn:#b9770e; --line:#e3eaf2;
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -114,7 +114,7 @@
   .band-dry{position:absolute;left:18%;right:18%;background:var(--band-dry);border-radius:3px 3px 0 0}
   .bar{
     position:relative;width:100%;
-    background:linear-gradient(180deg,var(--bar),#2566c4);
+    background:linear-gradient(180deg,#7a99b8,#5a7a9a);
     border-radius:4px 4px 0 0;transition:height .4s ease;
   }
   .bar .val{
@@ -261,9 +261,9 @@
       <span>J</span><span>A</span><span>S</span><span>O</span><span>N</span><span>D</span>
     </div>
     <div class="legend">
-      <span><i style="background:var(--bar)"></i>Pluie moyenne (mm)</span>
-      <span><i style="background:var(--band)"></i>Année humide (P90)</span>
+      <span><i style="background:#7a99b8"></i>Pluie moyenne (mm)</span>
       <span><i style="background:var(--band-dry)"></i>Année sèche (P10)</span>
+      <span><i style="background:var(--band)"></i>Année humide (P90)</span>
     </div>
   </div>
 
