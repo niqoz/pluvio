@@ -455,6 +455,7 @@ const NOTE = {
 let JEU = null;        // maille actuellement affichee (son objet de donnees)
 let currentWin = 'ref';// fenetre selectionnee
 let MAILLES = [];      // [{id, lat, lon, data}] pour la recherche du carre
+const MAX_SELECTION_KM = 30; // refuse les points clairement hors zone SAFRAN
 
 function pctFactory(ymax){ return v => (v/ymax*100); }
 
@@ -580,9 +581,29 @@ function reverseCommune(lat, lon){
 }
 
 let reqSeq = 0;  // garde-fou anti-reponses obsoletes
+function clearSelection(lat, lon, label){
+  JEU = null;
+  reqSeq++;
+  setLoc('Pas de donnée ici', label || (lat.toFixed(3)+', '+lon.toFixed(3)));
+  document.getElementById('communeLine').textContent = '—';
+  document.getElementById('mailleId').textContent = 'Hors zone SAFRAN';
+  document.getElementById('mailleCoord').textContent = lat.toFixed(3)+', '+lon.toFixed(3);
+  document.getElementById('periode').textContent = '—';
+  document.getElementById('chart').innerHTML = '';
+  document.getElementById('cuveChart').innerHTML = '';
+  ['annuel','seche','humide','volReco','covReco','covMoyen','covSeche','ctxRecup','ctxBesoin','ctxPeriode']
+    .forEach(id => { const el = document.getElementById(id); if(el) el.textContent = '—'; });
+  ['cuveSecure','cuveLimite','cVolPersoRes','ctxGainRow','ctxNetRow']
+    .forEach(id => { const el = document.getElementById(id); if(el) el.hidden = true; });
+  if(marker && map){ map.removeLayer(marker); marker = null; }
+}
+
 function selectPoint(lat, lon, label){
   const {maille, dist} = findMaille(lat, lon);
-  if(!maille) return;
+  if(!maille || dist > MAX_SELECTION_KM){
+    clearSelection(lat, lon, label);
+    return;
+  }
   JEU = maille.data;
   const comCarre = JEU.commune || '', depCarre = JEU.departement || '';
   // bandeau : carre meteo (sa commune-centre + n° + distance)
