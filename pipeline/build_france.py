@@ -9,7 +9,7 @@ SUM[base] = cumul de precip, CNT[base] = nb de jours observes.
 
 Sortie : data/out/normales_france.json  (+ refresh maquette/ajaccio.json)
 """
-import gzip, json, calendar, math, time, urllib.request
+import gzip, json, calendar, math, time, urllib.request, urllib.error
 from array import array
 
 YEAR0, YEAR1 = 1990, 2026
@@ -20,12 +20,33 @@ RECENTE_N = 15
 MIN_ANNEES = 8
 MAX_JOURS_MANQUANTS = 2
 
+BASE = "https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/REF_CC/SIM/"
 URLS = [
-    "https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/REF_CC/SIM/QUOT_SIM2_1990-1999.csv.gz",
-    "https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/REF_CC/SIM/QUOT_SIM2_2000-2009.csv.gz",
-    "https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/REF_CC/SIM/QUOT_SIM2_2010-2019.csv.gz",
-    "https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/REF_CC/SIM/QUOT_SIM2_previous-2020-202604.csv.gz",
+    BASE + "QUOT_SIM2_1990-1999.csv.gz",
+    BASE + "QUOT_SIM2_2000-2009.csv.gz",
+    BASE + "QUOT_SIM2_2010-2019.csv.gz",
 ]
+
+# Le dernier fichier est glissant : son nom contient le mois de fin
+# (QUOT_SIM2_previous-2020-YYYYMM.csv.gz) et change chaque mois.
+# On sonde les mois en remontant depuis aujourd'hui jusqu'a trouver le bon.
+def url_fichier_glissant():
+    an, mois = time.gmtime().tm_year, time.gmtime().tm_mon
+    for _ in range(24):
+        url = BASE + "QUOT_SIM2_previous-2020-%04d%02d.csv.gz" % (an, mois)
+        req = urllib.request.Request(url, method="HEAD")
+        try:
+            with urllib.request.urlopen(req):
+                return url
+        except urllib.error.HTTPError as err:
+            if err.code != 404:
+                raise
+        mois -= 1
+        if mois == 0:
+            an, mois = an - 1, 12
+    raise RuntimeError("fichier glissant QUOT_SIM2_previous-2020-* introuvable")
+
+URLS.append(url_fichier_glissant())
 
 # ---------- stats maison ----------
 def quantile(vals, q):
@@ -80,7 +101,17 @@ for url in URLS:
     print("--- stream %s ---" % name, flush=True)
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     t0 = time.time(); total = 0
-    with urllib.request.urlopen(req) as resp, gzip.GzipFile(fileobj=resp) as gz:
+    # ouverture avec reprise : le serveur data.gouv renvoie parfois un 502 passager
+    for tentative in range(5):
+        try:
+            resp = urllib.request.urlopen(req)
+            break
+        except urllib.error.HTTPError as err:
+            if err.code not in (500, 502, 503, 504) or tentative == 4:
+                raise
+            print("  HTTP %d, nouvel essai dans 30 s (%d/4)" % (err.code, tentative+1), flush=True)
+            time.sleep(30)
+    with resp, gzip.GzipFile(fileobj=resp) as gz:
         gz.readline()  # en-tete
         for raw in gz:
             total += 1
@@ -158,9 +189,11 @@ for i in range(N):
             c = CNT[base]
             if c == 0: continue
             has_any = True
-            if c >= dim[(year, m)] - MAX_JOURS_MANQUANTS:
-                cumuls[m][year] = SUM[base]
-                cumuls_etp[m][year] = SUM_ETP[base]
+            nj = dim[(year, m)]
+            if c >= nj - MAX_JOURS_MANQUANTS:
+                # remise a l'echelle des (rares) jours manquants pour ne pas sous-estimer le mois
+                cumuls[m][year] = SUM[base] * nj / c
+                cumuls_etp[m][year] = SUM_ETP[base] * nj / c
                 annees_presentes.add(year)
     if not has_any:
         continue
@@ -170,7 +203,10 @@ for i in range(N):
             cumul_annuel[a] = sum(cumuls[m][a] for m in range(1, 13))
     toutes = sorted(annees_presentes)
     ref = [a for a in toutes if REF_MIN <= a <= REF_MAX]
-    recentes = toutes[-RECENTE_N:]
+    # Fenetre recente : uniquement des annees COMPLETES (12 mois). Sinon la derniere
+    # annee partielle (ex. 2026 arretee en avril) n'alimente que janvier-avril
+    # -> fenetre non homogene entre les mois, et n_annees != libelle "15 dern. ans".
+    recentes = sorted(cumul_annuel)[-RECENTE_N:]
     tendance = []
     for m in range(1, 13):
         pts = [(a, cumuls[m][a]) for a in toutes if a in cumuls[m]]
@@ -193,10 +229,4 @@ with open("data/out/normales_france.json", "w", encoding="utf-8") as out:
     json.dump(resultat, out, ensure_ascii=False)
 print("Normales France : %d mailles -> data/out/normales_france.json" % len(resultat), flush=True)
 
-# refresh extrait Ajaccio pour la maquette (coherence)
-cible = "11320_16810"
-if cible in resultat:
-    with open("docs/ajaccio.json", "w", encoding="utf-8") as out:
-        json.dump({"maille": cible, **resultat[cible]}, out, ensure_ascii=False, indent=1)
-    print("-> maquette/ajaccio.json rafraichi", flush=True)
 print("TOTAL %.0fs" % (time.time()-t_start), flush=True)

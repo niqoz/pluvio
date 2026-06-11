@@ -1,8 +1,8 @@
 /* Service worker — Pluvio RWH
    Met en cache l'app shell ET les donnees (normales_france.json) pour un
-   fonctionnement 100% hors-ligne. Strategie : cache-first.
+   fonctionnement 100% hors-ligne. Strategie : RESEAU d'abord, cache en repli.
    Incrementer CACHE a chaque mise a jour du code ou des donnees. */
-const CACHE = "pluvio-rwh-v24";
+const CACHE = "pluvio-rwh-v25";
 const ASSETS = [
   "./",
   "./index.html",

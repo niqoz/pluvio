@@ -3,7 +3,7 @@
 ## Décisions fonctionnelles V1 (§10 du cahier des charges)
 
 1. **Périmètre** : France métropolitaine + Corse uniquement. SAFRAN seul, pas de fallback ERA5-Land en V1.
-2. **Fenêtre par défaut** : **1995-2020** (2 fenêtres affichées : 1995-2020 et les 15 dernières années ; la fenêtre « toute l'histoire » a été retirée).
+2. **Fenêtre par défaut** : **1995-2020** (2 fenêtres affichées : 1995-2020 et les **15 dernières années complètes** — les années partielles comme 2026 en cours sont exclues, sinon les stats mensuelles mélangent 14 et 15 ans ; la fenêtre « toute l'histoire » a été retirée).
 3. **Accès SAFRAN** : Option A — pré-calcul depuis fichiers (streaming CSV.gz, sans écriture d'intermédiaires pour la France entière).
 4. **Sélection spatiale** : GPS smartphone (prioritaire) + sélecteur de villes + carte interactive (Leaflet, mode complémentaire).
 5. **Commune** : position GPS exacte via `geo.api.gouv.fr` (appel en ligne) ; commune du carré embarquée dans le JSON pour fallback offline.
@@ -14,8 +14,8 @@
 
 ```
 pipeline/          Scripts Python de pré-calcul (one-shot)
-  build_france.py  SAFRAN -> data/out/normales_france.json  (streaming, ~5 min ; pluie + ET0)
-  add_communes.py  Ajoute commune/departement/insee à chaque maille (geo.api.gouv.fr, 24 threads)
+  build_france.py  SAFRAN -> data/out/normales_france.json  (streaming, ~10-15 min ; pluie + ET0 ; retry auto sur HTTP 5xx)
+  add_communes.py  Ajoute commune/departement/insee à chaque maille (geo.api.gouv.fr, 24 threads, jusqu'à 3 passes sur les échecs réseau)
   merge_et0.py     Fusionne et0_moy[12] dans docs/ sans re-solliciter geo.api (préserve communes)
   aggregate.py     Agrégation Corse seule (test/validation)
   extract_corse.py Extraction streaming d'une zone (CSV intermédiaire)
@@ -23,9 +23,12 @@ pipeline/          Scripts Python de pré-calcul (one-shot)
   generate_icons.py Génère les icônes PWA (Pillow)
   sniff_header.py  Outil de diagnostic (lit quelques lignes d'un CSV.gz distant)
 
+tests/             Tests JS du module cuve (node tests/test_cuve.mjs, zéro dépendance)
+                   Extrait KC/KS_ETE/simulCuve/dimensionne de docs/index.html par regex
+
 docs/              App cliente PWA (GitHub Pages)
   index.html       App complète (HTML/JS, pas de framework)
-  normales_france.json  Jeu de données (11,8 Mo, 9892 mailles)
+  normales_france.json  Jeu de données (~13 Mo, 9892 mailles)
   sw.js            Service worker (network-first, cache offline)
   manifest.webmanifest  Identité PWA
   icon-192/512.png Icônes (goutte d'eau bleue)
@@ -40,7 +43,7 @@ data/              Données brutes et intermédiaires (dans .gitignore, ~5 Go)
 ## Données SAFRAN : détails techniques
 
 - **Source** : `https://object.files.data.gouv.fr/meteofrance/data/synchro_ftp/REF_CC/SIM/`
-- **Fichiers** : `QUOT_SIM2_1990-1999.csv.gz`, `…2000-2009`, `…2010-2019`, `QUOT_SIM2_previous-2020-202604.csv.gz`
+- **Fichiers** : `QUOT_SIM2_1990-1999.csv.gz`, `…2000-2009`, `…2010-2019`, `QUOT_SIM2_previous-2020-YYYYMM.csv.gz`. ⚠️ Le dernier est **glissant** : son nom contient le mois de fin et change chaque mois (404 sinon) ; build_france.py le découvre automatiquement par sondage HEAD en remontant depuis le mois courant.
 - **Colonnes réelles** (index 0-based) : `0 LAMBX ; 1 LAMBY ; 2 DATE ; 3 PRENEI ; 4 PRELIQ ; 5 T ; 6 FF ; 7 Q ; 8 DLI ; 9 SSI ; 10 HU ; 11 EVAP ; 12 ETP ; 13 PE ; …` — séparateur `;`, décimale **point**, DATE=YYYYMMDD.
   ⚠️ Les noms sont `PRELIQ`/`PRENEI` **sans** le suffixe `_Q` annoncé dans le cahier des charges.
 - **Pluie totale** = `PRELIQ + PRENEI` (pluie + neige), index 4 + 3.
@@ -68,6 +71,7 @@ Par maille (clé = `"LAMBX_LAMBY"`) :
   "tendance_mm_decennie": [9.7, 8.0, ...]
 }
 ```
+- `recente` = les 15 dernières années **complètes** (`n_annees: 15`) ; l'année en cours (partielle) est exclue.
 - **8 594/9 892** mailles ont une commune (87 %) ; 1 298 en mer/côte (normal).
 - `altitude_m` = null partout (pas dans la grille, à faire).
 
@@ -76,17 +80,17 @@ Par maille (clé = `"LAMBX_LAMBY"`) :
 - **Deux onglets** : « Pluie » (histogramme des cumuls mensuels) et « Cuve » (dimensionnement RWH).
 - **findMaille** : plus proche voisin haversine, **privilégie les mailles avec commune** (évite les carrés maritimes près des côtes).
 - **Commune position** : appel `geo.api.gouv.fr/communes?lat=&lon=` au clic (en ligne) ; fallback offline = commune du carré embarquée.
-- **Service worker** : network-first. Incrémenter `const CACHE = "pluvio-rwh-vN"` à chaque mise à jour pour forcer le rechargement (actuellement **v22**).
+- **Service worker** : network-first. Incrémenter `const CACHE = "pluvio-rwh-vN"` à chaque mise à jour pour forcer le rechargement (actuellement **v25**).
 - **Histogramme pluie** : échelle verticale **commune** aux 2 fenêtres (ref + récente) pour comparer sans illusion d'optique.
 - **Aide iOS** : bandeau auto si iPhone/iPad non installé. Détection = `/iP(hone|ad|od)/.test(UA) && 'standalone' in navigator` (double garde, sinon faux positifs Android). Fermeture mémorisée en `localStorage` (`iosHintDismissed`). ⚠️ Piège résolu : `.ioshint` avait `display:flex` qui écrasait l'attribut `hidden` → bandeau impossible à masquer ; corrigé par `.ioshint[hidden]{display:none}`. iPad récent non détecté (Safari se déclare « Macintosh »).
 - **Vérifier la version** : étiquette footer affiche `"N carrés · M communes"` ; 0 communes = ancien cache.
 
 ### Onglet Cuve (module dimensionnement)
 
-- **Méthode** : bilan mensuel de Rippl. Apport toit = `pluie × surface × coef_ruissellement / 1000` (m³). Besoin = `max(0, ET0×Kc×Ksété − pluie) × surface / 1000`, **calculé par culture puis additionné** (Kc différents → netting pluie par zone).
+- **Méthode** : bilan mensuel de Rippl. Apport toit = `pluie × surface × coef_ruissellement / 1000` (m³). Besoin = `Ksété × max(0, ET0×Kc − pluie) × surface / 1000`, **calculé par culture puis additionné** (Kc différents → netting pluie par zone). ⚠️ Ksété s'applique **à l'extérieur** du max (fraction du déficit complet) : l'ancienne forme `max(0, ET0×Kc×Ks − pluie)` sous-estimait le besoin dès qu'il pleut un peu l'été (corrigé juin 2026).
 - **Cultures multiples** : zones répétables (`#cZones`, fn `addZone`/`lireZones`), chacune surface + type. Bouton « ＋ Ajouter une culture », ✕ pour retirer (min. 1).
 - **Types Kc** (`const KC`) : `gazon_froid` (C3, pic 0,9), `gazon_chaud` (C4 kikuyu/bermuda, pic 0,65, **défaut** car cible Corse/Med), `potager` (pic 1,05), `massifs` (0,2-0,5), `aromatiques_med` (lavande/thym/romarin, garrigue très sobre ~0,35), `fleurs` (massif fleuri/aromatiques tendres/basilic, gourmand comme potager ~0,95), `verger` (pic 0,85, feuillu→hiver 0), `oliviers` (persistant rustique **non irrigué** ~0,65), `agrumes` (persistant **productif irrigué** ~0,70 ; clémentine plaine orientale, olivier de production). ⚠️ `oliviers` vs `agrumes` = même type d'arbre (persistant med, Kc proche) mais **conduite opposée** : rustique sec (survie) vs productif arrosé à fond. Distinction issue d'une obs. terrain (agrumes très arrosés en plaine orientale corse).
-- **Survie estivale** (`const KS_ETE`, mois `MOIS_ETE = [5,6,7,8]` = juin→sept.) : les espèces résistantes à la sécheresse se mettent en veille l'été (jaunissent mais survivent), donc on ne couvre qu'une **ration de survie** au lieu de 100 % du déficit → `oliviers 0,35`, `aromatiques_med 0,40`, `gazon_chaud 0,40`, `massifs 0,50` ; `gazon_froid`/`potager`/`fleurs`/`verger`/`agrumes = 1` (ils souffrent vraiment / sont irrigués à fond → arrosage plein). Appliqué **par espèce, automatiquement** (pas de réglage UI), documenté dans la note de méthode. ⚠️ Gros effet sur les climats à été sec : Ajaccio 100 m² toit + 100 m² oliviers passe de **20,7 → 2,8 m³** de cuve conseillée (olivier établi ≈ non irrigué en med). Choix de design : automatique par espèce (juin 2026).
+- **Survie estivale** (`const KS_ETE`, mois `MOIS_ETE = [5,6,7,8]` = juin→sept.) : les espèces résistantes à la sécheresse se mettent en veille l'été (jaunissent mais survivent), donc on ne couvre qu'une **ration de survie** au lieu de 100 % du déficit → `oliviers 0,35`, `aromatiques_med 0,40`, `gazon_chaud 0,40`, `massifs 0,50` ; `gazon_froid`/`potager`/`fleurs`/`verger`/`agrumes = 1` (ils souffrent vraiment / sont irrigués à fond → arrosage plein). Appliqué **par espèce, automatiquement** (pas de réglage UI), documenté dans la note de méthode. ⚠️ Gros effet sur les climats à été sec : Ajaccio 100 m² toit + 100 m² oliviers passe de **20,7 → 5,6 m³** de cuve conseillée (olivier établi ≈ non irrigué en med ; c'était 2,8 m³ avec l'ancienne formule Ks-dans-le-max, corrigée juin 2026). Choix de design : automatique par espèce (juin 2026).
 - **Année sèche** : `pluieSec = moy × (annee_seche_p10 / annuel_moyen)` — PAS la somme des p10 mensuels (piège §10.7).
 - **Volume conseillé** = plus petite cuve atteignant ~99 % de couverture année normale. Si la toiture ne suffit jamais → plateau `covMax` + bandeau « ⚠ Limité par la toiture » (une cuve plus grande resterait vide). ⚠️ Conséquence contre-intuitive : une toiture peu collectante (végétalisée 0,4) peut **réduire** le volume conseillé tout en **abaissant la couverture** → lire le trio volume + couverture % + bandeau, pas le volume seul.
 - **Tester une autre capacité** (`#cVolPerso`, bouton ↺) : saisir un volume réel → courbe de niveau + couvertures recalculées pour CE volume.
@@ -101,7 +105,7 @@ Par maille (clé = `"LAMBX_LAMBY"`) :
 
 ## Italpluvio (déclinaison Italie — repo séparé `../italpluvio`)
 
-⚠️ **Emplacement réel** : Italpluvio vit dans un **repo git distinct** : `/home/niqo/Projets/italpluvio` (github.com/niqoz/italpluvio), servi sur `niqoz.github.io/italpluvio/`. C'est la **seule** version. L'ancienne copie périmée `docs/it/` (servie sur `/pluvio/it/`) a été **supprimée** (juin 2026) ; toute modif du module cuve Italie va dans **`../italpluvio/docs/`**.
+⚠️ **Emplacement réel** : Italpluvio vit dans un **repo git distinct** : `/home/niqo/Projets/italpluvio` (github.com/niqoz/italpluvio), servi sur `niqoz.github.io/italpluvio/`. C'est la **seule** version. L'ancienne copie périmée `docs/it/` (servie sur `/pluvio/it/`) a été **supprimée** (juin 2026) ; toute modif du module cuve Italie va dans **`../italpluvio/docs/`**. Les scripts pipeline Italie (`build_italie.py`, `build_italie_cds.py`) et leurs données (`era5land_italie_monthly.nc`, `italie_regions.geojson`, cache Open-Meteo) ont été **rapatriés dans `../italpluvio/pipeline/` et `../italpluvio/data/`** (juin 2026) — plus rien d'italien dans le repo pluvio.
 
 Clone de Pluvio couvrant **l'Italie**. Même app, même module cuve, même méthode ; seule la **source de données** change.
 
@@ -120,11 +124,12 @@ Clone de Pluvio couvrant **l'Italie**. Même app, même module cuve, même méth
 
 ### Régénérer les données Italie (voie CDS, recommandée)
 
+**Dans `../italpluvio/`** (plus dans ce repo) :
 ```bash
 .venv/bin/python pipeline/build_italie_cds.py --selftest   # valide la formule ET0 FAO-56 (sans CDS)
 .venv/bin/python pipeline/build_italie_cds.py --download    # télécharge le NetCDF ERA5-Land mensuel (~44 Mo, file d'attente CDS)
-.venv/bin/python pipeline/build_italie_cds.py               # agrège -> docs/it/normales_italie.json (3 235 points)
-# Incrémenter CACHE dans docs/it/sw.js, puis commit/push
+.venv/bin/python pipeline/build_italie_cds.py               # agrège -> docs/normales_italie.json (3 235 points)
+# Incrémenter CACHE dans docs/sw.js, puis commit/push
 ```
 Le polygone Italie (`data/raw/italie_regions.geojson`, openpolis/geojson-italy) est téléchargé une fois par `build_italie.py` et réutilisé par la voie CDS.
 
@@ -132,9 +137,10 @@ Le polygone Italie (`data/raw/italie_regions.geojson`, openpolis/geojson-italy) 
 
 Cas simple (1er build complet) :
 ```bash
-python pipeline/build_france.py           # streaming ~5 min -> data/out/normales_france.json (pluie + et0_moy)
+python pipeline/build_france.py           # streaming ~10-15 min -> data/out/normales_france.json (pluie + et0_moy)
 python pipeline/add_communes.py           # ~2 min -> ajoute commune/departement/insee
 cp data/out/normales_france.json docs/normales_france.json
+node tests/test_cuve.mjs                  # vérifie le module cuve (8 tests, dont Ajaccio bout en bout)
 # Incrémenter CACHE dans docs/sw.js
 git add docs/ && git commit -m "Regénération données SAFRAN YYYY" && git push
 ```

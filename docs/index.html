@@ -332,7 +332,7 @@
           <input id="cToit" type="number" inputmode="numeric" min="1" step="1" value="100">
           <select id="cMat" title="Matériau de toiture">
             <option value="0.9">Tuiles / ardoises</option>
-            <option value="0.9">Bac acier / tôle</option>
+            <option value="0.95">Bac acier / tôle</option>
             <option value="0.7">Toiture gravillonnée</option>
             <option value="0.4">Toiture végétalisée</option>
           </select>
@@ -415,9 +415,10 @@
       Méthode de Rippl (bilan mensuel). Besoin d'arrosage = évapotranspiration de chaque
       culture (ET0 × coefficient cultural) moins la pluie ; le besoin est calculé par
       culture puis additionné. L'hiver tombe naturellement à zéro (pause végétative).
-      En été, les espèces résistantes à la sécheresse (kikuyu, oliviers/figuiers rustiques,
-      massifs et aromatiques méditerranéennes type lavande/thym) sont calculées en mode
-      survie — arrosage réduit : elles jaunissent puis repartent aux pluies — ce qui évite
+      En été (juin→septembre), les espèces résistantes à la sécheresse (kikuyu,
+      oliviers/figuiers rustiques, massifs et aromatiques méditerranéennes type lavande/thym)
+      ne reçoivent qu'une <strong>fraction de leur déficit en eau</strong> (mode survie :
+      elles jaunissent puis repartent aux pluies) — ce qui évite
       de surdimensionner la cuve ; le gazon classique, le potager, les fleurs/aromatiques
       tendres, le verger et les <strong>agrumes/oliviers productifs irrigués</strong>
       restent arrosés à 100 %. En zone méditerranéenne,
@@ -442,15 +443,14 @@
 
 <script src="vendor/leaflet/leaflet.js"></script>
 <script>
-// --- Donnees REELLES : produites par le pipeline (pipeline/aggregate.py) ---
-// Format : ajaccio.json = { maille, lat, lon, annees_disponibles:[a,b],
-//   fenetres:{ historique, ref_1995_2020, recente }, ... }
-// chaque fenetre = { moy[12], med[12], p10[12], p90[12], annuel_moyen, annee_seche_p10, n_annees }
-const WIN = { historique:"historique", ref:"ref_1995_2020", recente:"recente" };
+// --- Donnees : normales_france.json produit par pipeline/build_france.py ---
+// Par maille : { lat, lon, commune, annees_disponibles:[a,b], fenetres:{ ref_1995_2020, recente } }
+// chaque fenetre = { moy[12], med[12], p10[12], p90[12], et0_moy[12],
+//                    annuel_moyen, annee_seche_p10, annee_humide_p90, n_annees }
+const WIN = { ref:"ref_1995_2020", recente:"recente" };
 const NOTE = {
-  historique:"Toute la profondeur disponible — la plus stable statistiquement.",
   ref:"Période de référence 1995-2020 (réglage par défaut).",
-  recente:"Les 15 dernières années — climat actuel."
+  recente:"Les 15 dernières années complètes — climat actuel."
 };
 let JEU = null;        // maille actuellement affichee (son objet de donnees)
 let currentWin = 'ref';// fenetre selectionnee
@@ -557,9 +557,17 @@ function findMaille(lat, lon){
 }
 
 function setLoc(titre, sub){
-  document.getElementById('locInfo').innerHTML =
-    '<span class="pin">📍</span><span><b>'+titre+'</b>'+
-    (sub ? ' <small>· '+sub+'</small>' : '')+'</span>';
+  // construction DOM (textContent) : les noms viennent d'une API externe,
+  // on ne les injecte pas en innerHTML
+  const box = document.getElementById('locInfo');
+  box.textContent = '';
+  const pin = document.createElement('span'); pin.className='pin'; pin.textContent='📍';
+  const txt = document.createElement('span');
+  const b = document.createElement('b'); b.textContent = titre; txt.appendChild(b);
+  if(sub){
+    const s = document.createElement('small'); s.textContent = ' · '+sub; txt.appendChild(s);
+  }
+  box.appendChild(pin); box.appendChild(txt);
 }
 
 // commune de la POSITION exacte (en ligne) ; null si hors-ligne/echec
@@ -753,8 +761,11 @@ function renderFillChart(niveaux, cap){
     });
     col.appendChild(bar); chart.appendChild(col);
   });
-  chart.addEventListener('click', ()=>chart.querySelectorAll('.bar-tip.on').forEach(t=>t.classList.remove('on')));
 }
+// fermeture des infobulles au clic hors barre (UNE seule fois, pas a chaque rendu)
+document.getElementById('cuveChart').addEventListener('click', function(){
+  this.querySelectorAll('.bar-tip.on').forEach(t=>t.classList.remove('on'));
+});
 
 function renderCuve(){
   if(!JEU) return;
@@ -791,9 +802,11 @@ function renderCuve(){
       apport.push(pl * toit * coef / 1000);
       let bm = 0;
       for(const z of zones){
-        // ete : ration de survie pour les especes resistantes (ksEte<1) ; sinon 100%
+        // ete : ration de survie = FRACTION DU DEFICIT complet (ET0×Kc − pluie),
+        // pas une reduction de la soif avant deduction de la pluie (qui sous-estimerait
+        // le besoin dans les climats a ete arrose). Hors ete : deficit plein.
         const ke = MOIS_ETE.includes(m) ? (z.ksEte || 1) : 1;
-        bm += Math.max(0, e0*z.kc[m]*ke - pl) * z.surf / 1000;  // mm a arroser × surface
+        bm += Math.max(0, e0*z.kc[m] - pl) * ke * z.surf / 1000;  // mm a arroser × surface
       }
       besoin.push(bm);
     }

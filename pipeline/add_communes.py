@@ -36,21 +36,29 @@ def geocode(item):
             continue
     return mid, None, None, None        # echec reseau -> a retenter
 
-done = 0; sans = 0; echecs = 0
-with ThreadPoolExecutor(max_workers=WORKERS) as ex:
-    for mid, com, dep, insee in ex.map(geocode, items):
-        done += 1
-        if com is None:
-            echecs += 1
-        else:
-            data[mid]["commune"] = com
-            data[mid]["departement"] = dep
-            data[mid]["insee"] = insee
-            if not com:
-                sans += 1
-        if done % 1000 == 0:
-            print("  ... %d / %d  (%d en mer, %d echecs reseau)"
-                  % (done, len(items), sans, echecs), flush=True)
+done = 0; sans = 0
+restants = items
+for passe in range(1, 4):           # jusqu'a 3 passes sur les echecs reseau
+    rates = []
+    with ThreadPoolExecutor(max_workers=WORKERS) as ex:
+        for mid, com, dep, insee in ex.map(geocode, restants):
+            done += 1
+            if com is None:
+                rates.append((mid, data[mid]))
+            else:
+                data[mid]["commune"] = com
+                data[mid]["departement"] = dep
+                data[mid]["insee"] = insee
+                if not com:
+                    sans += 1
+            if done % 1000 == 0:
+                print("  ... %d req  (%d en mer, %d echecs reseau)"
+                      % (done, sans, len(rates)), flush=True)
+    restants = rates
+    if not restants:
+        break
+    print("Passe %d : %d echecs reseau a retenter" % (passe, len(restants)), flush=True)
+echecs = len(restants)
 
 json.dump(data, open(SRC, "w", encoding="utf-8"), ensure_ascii=False)
 print("Reecrit %s" % SRC, flush=True)
