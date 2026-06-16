@@ -209,6 +209,11 @@
     border:4px solid transparent;border-top-color:var(--ink);
   }
   .bar-tip.on{display:block}
+  .cuve-bars{position:relative;width:100%;height:100%;display:flex;align-items:flex-end;gap:2px;cursor:pointer}
+  .cuve-bars .bar{flex:1;min-width:0}
+  .cuve-bar-normal{background:linear-gradient(180deg,#cfe2fb,var(--bar2))}
+  .cuve-bar-sec{background:linear-gradient(180deg,var(--bar),#2566c4)}
+  .col > .bar-tip{top:8px;bottom:auto;line-height:1.35;text-align:left}
   .cuve-sim-res b{color:var(--ink);font-weight:700}
   .zone-row{display:flex;gap:8px;margin-bottom:6px;align-items:center}
   .zone-row .z-surf{width:78px;flex:none}
@@ -407,7 +412,8 @@
         <span>J</span><span>A</span><span>S</span><span>O</span><span>N</span><span>D</span>
       </div>
       <div class="legend">
-        <span><i style="background:var(--bar)"></i><span id="cuveLegend">Niveau de la cuve (m³) — année sèche</span></span>
+        <span><i style="background:var(--bar)"></i><span id="cuveLegend">Niveau année sèche</span></span>
+        <span><i style="background:var(--bar2)"></i>Niveau année normale</span>
       </div>
     </div>
 
@@ -748,6 +754,7 @@ function dimensionne(apport, besoin){
 
 function fmtVol(v){ return v>=10 ? String(Math.round(v)) : String(Math.round(v*2)/2).replace('.', ','); }
 function fmtM3(v){ return (Math.round(v*10)/10).toFixed(1).replace('.', ',') + ' m³/an'; }
+function fmtM3Level(v){ return (Math.round(v*10)/10).toFixed(1).replace('.', ',') + ' m³'; }
 
 function niceStep(ymax){
   const raw = ymax/4 || 1;
@@ -756,10 +763,10 @@ function niceStep(ymax){
   return (m*pow) || 1;
 }
 
-function renderFillChart(niveaux, cap){
+function renderFillChart(niveauxSec, niveauxNorm, cap){
   const chart = document.getElementById('cuveChart');
   chart.innerHTML = '';
-  const YMAX = Math.max(cap, ...niveaux, 0.1);
+  const YMAX = Math.max(cap, ...niveauxSec, ...niveauxNorm, 0.1);
   const step = niceStep(YMAX);
   const pct = v => v/YMAX*100;
   for(let g=0; g<=YMAX+1e-9; g+=step){
@@ -768,19 +775,27 @@ function renderFillChart(niveaux, cap){
     lab.textContent = g>=10 ? Math.round(g) : Math.round(g*10)/10;
     chart.appendChild(line); chart.appendChild(lab);
   }
-  niveaux.forEach(n=>{
+  niveauxSec.forEach((nSec, i)=>{
+    const nNorm = niveauxNorm[i] || 0;
     const col = document.createElement('div'); col.className='col';
-    const bar = document.createElement('div'); bar.className='bar'; bar.style.height=pct(n)+'%';
+    const bars = document.createElement('div'); bars.className='cuve-bars';
+    const barNorm = document.createElement('div'); barNorm.className='bar cuve-bar-normal';
+    barNorm.style.height=pct(nNorm)+'%';
+    const barSec = document.createElement('div'); barSec.className='bar cuve-bar-sec';
+    barSec.style.height=pct(nSec)+'%';
     const tip = document.createElement('div'); tip.className='bar-tip';
-    tip.textContent = (cap > 0 ? Math.round(n/cap*100) : 0) + ' %';
-    bar.appendChild(tip);
-    bar.addEventListener('click', e=>{
+    tip.innerHTML = 'Normale&nbsp;: '+fmtM3Level(nNorm)+' · '+(cap > 0 ? Math.round(nNorm/cap*100) : 0)+' %<br>'+
+      'Sèche&nbsp;: '+fmtM3Level(nSec)+' · '+(cap > 0 ? Math.round(nSec/cap*100) : 0)+' %';
+    bars.appendChild(barNorm);
+    bars.appendChild(barSec);
+    col.appendChild(tip);
+    bars.addEventListener('click', e=>{
       e.stopPropagation();
       const wasOn = tip.classList.contains('on');
       chart.querySelectorAll('.bar-tip.on').forEach(t=>t.classList.remove('on'));
       if(!wasOn) tip.classList.add('on');
     });
-    col.appendChild(bar); chart.appendChild(col);
+    col.appendChild(bars); chart.appendChild(col);
   });
 }
 // fermeture des infobulles au clic hors barre (UNE seule fois, pas a chaque rendu)
@@ -907,14 +922,18 @@ function renderCuve(){
     simRes.hidden = false;
     simRes.innerHTML = 'Une cuve de <b>'+fmtVol(volPerso)+' m³</b> couvre <b>'+Math.round(cAffNorm*100)+
       ' %</b> de l’arrosage une année normale et <b>'+Math.round(cAffSec*100)+' %</b> une année sèche.';
-    lg.textContent = 'Niveau d’une cuve de '+fmtVol(volPerso)+' m³ — année sèche';
+    lg.textContent = 'Niveau sec — cuve '+fmtVol(volPerso)+' m³';
   } else {
     simRes.hidden = true;
-    lg.textContent = 'Niveau de la cuve conseillée (m³) — année sèche';
+    lg.textContent = 'Niveau sec — cuve conseillée';
   }
 
-  // courbe : niveau du volume affiche au fil de l'annee SECHE (montre l'etiage estival)
-  renderFillChart(simulCuve(volAff, sSec.apport, sSec.besoin).niveaux, volAff);
+  // courbe : niveaux du volume affiche au fil d'une annee seche et d'une annee normale.
+  renderFillChart(
+    simulCuve(volAff, sSec.apport, sSec.besoin).niveaux,
+    simulCuve(volAff, sMoy.apport, sMoy.besoin).niveaux,
+    volAff
+  );
 }
 
 // --- Gestion des zones de culture (surface + type, repetables) ---
