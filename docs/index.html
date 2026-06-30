@@ -224,6 +224,21 @@
   .add-zone{width:100%;border:1px dashed #b9d4f5;border-radius:10px;padding:9px;
     background:#f6f9fc;color:var(--bar);font-weight:600;font-size:12.5px;cursor:pointer}
   .add-zone:active{background:#eaf2fe}
+  /* Usage domestique (WC, lave-linge) */
+  .dom-toggle{display:flex;align-items:center;gap:8px;margin:2px 0 0;
+    font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer}
+  .dom-toggle input{width:auto;flex:none;margin:0}
+  .dom-fields{border:1px solid var(--line);border-radius:12px;
+    padding:12px 12px 4px;background:#f6f9fc;margin-top:9px}
+  .dom-use{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+  .dom-use .u-lbl{flex:1;margin:0;font-size:12.5px;color:var(--ink);font-weight:600;
+    display:flex;align-items:center;gap:7px;cursor:pointer}
+  .dom-use input[type=checkbox]{width:auto;flex:none;margin:0}
+  .dom-use .u-lpj{width:64px;flex:none}
+  .dom-use .u-unit{flex:none;font-size:10.5px;color:var(--muted)}
+  .dom-legal{margin-top:2px;background:#eef3fb;border:1px solid #cfe2fb;border-radius:10px;
+    padding:9px 11px;font-size:10.5px;color:#3a5573;line-height:1.55}
+  .dom-legal b{color:var(--ink)}
   /* ── Layout bureau (≥ 768 px) ──────────────────────────────── */
   @media (min-width:768px){
     body{ padding:24px 32px; }
@@ -348,6 +363,31 @@
         <div id="cZones"></div>
         <button id="cAddZone" type="button" class="add-zone">＋ Ajouter une culture</button>
       </div>
+      <div class="field" style="margin-top:8px">
+        <label class="dom-toggle"><input type="checkbox" id="cDomOn"> Ajouter l’usage domestique (WC, lave-linge)</label>
+        <div id="cDomFields" class="dom-fields" hidden>
+          <label style="display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px;font-weight:600">Nombre d’occupants du logement</label>
+          <input id="cOccup" type="number" inputmode="numeric" min="0" step="1" value="4" style="margin-bottom:11px">
+          <div class="dom-use">
+            <label class="u-lbl"><input type="checkbox" id="cWcOn" checked> WC (chasses d’eau)</label>
+            <input class="u-lpj" id="cWcLpj" type="number" inputmode="numeric" min="0" step="1" value="25">
+            <span class="u-unit">L/pers/j</span>
+          </div>
+          <div class="dom-use">
+            <label class="u-lbl"><input type="checkbox" id="cLlOn"> Lave-linge</label>
+            <input class="u-lpj" id="cLlLpj" type="number" inputmode="numeric" min="0" step="1" value="17">
+            <span class="u-unit">L/pers/j</span>
+          </div>
+          <div class="dom-legal">
+            <b>Cadre légal (arrêté du 12 juillet 2024)</b> — Autorisés à l’intérieur : WC,
+            nettoyage des sols et lave-linge. Interdits : boisson, cuisine, vaisselle, hygiène
+            (douche, lavabo). Réseau séparé du réseau d’eau potable obligatoire, sans
+            interconnexion, robinets signalés «&nbsp;eau non potable&nbsp;».
+            <span id="cDomLegalLl" hidden><br><b>Lave-linge :</b> déclaration en préfecture
+            et qualité d’eau A+ requises.</span>
+          </div>
+        </div>
+      </div>
       <div class="field" style="margin-top:8px;margin-bottom:4px">
         <label>Prix du m³ facturé par le distributeur — optionnel (€/m³)</label>
         <input id="cPrixM3" type="number" inputmode="decimal" min="0" step="0.01" placeholder="ex : 3,50">
@@ -366,12 +406,12 @@
         <div class="reco moyen">
           <span class="k">Année normale</span>
           <div class="pct" id="covMoyen">—</div>
-          <div class="cov">de l'arrosage couvert</div>
+          <div class="cov" id="covMoyenLbl">de l'arrosage couvert</div>
         </div>
         <div class="reco seche">
           <span class="k">Année sèche (1 sur 10)</span>
           <div class="pct" id="covSeche">—</div>
-          <div class="cov">de l'arrosage couvert</div>
+          <div class="cov" id="covSecheLbl">de l'arrosage couvert</div>
         </div>
       </div>
       <div class="cuve-secure" id="cuveSecure" hidden></div>
@@ -379,7 +419,8 @@
 
     <div class="cuve-ctx">
       <div class="row"><span>Eau récupérable sur le toit</span><b id="ctxRecup">—</b></div>
-      <div class="row"><span>Besoin d'arrosage estimé</span><b id="ctxBesoin">—</b></div>
+      <div class="row"><span>Besoin arrosage (jardin)</span><b id="ctxBesoin">—</b></div>
+      <div class="row" id="ctxBesoinDomRow" hidden><span>Besoin domestique (WC, lave-linge)</span><b id="ctxBesoinDom">—</b></div>
       <div class="row" style="border:none"><span>Période climatique utilisée</span><b id="ctxPeriode">—</b></div>
       <div class="row gain-row" id="ctxGainRow" hidden>
         <span>Économie cuve (année normale)</span><b id="ctxGain">—</b>
@@ -430,6 +471,11 @@
       restent arrosés à 100 %. En zone méditerranéenne,
       choisir « Kikuyu / gazon chaud » : il consomme ~30 % de moins qu'un gazon classique.
       Le volume conseillé couvre l'arrosage en traversant la saison sèche.
+      <span id="cuveNoteDom" hidden> L'<strong>usage domestique</strong> (WC, lave-linge) ajoute
+      une demande <strong>constante toute l'année</strong>, indépendante de la météo. Comme un
+      <strong>appoint réseau</strong> prend toujours le relais quand la cuve est vide (le WC ne tombe
+      jamais à sec), le chiffre à lire est la <strong>couverture&nbsp;%</strong> plutôt que l'autonomie
+      totale&nbsp;: une cuve plus modeste capte déjà l'essentiel de l'économie.</span>
     </div>
   </div><!-- /tab-right -->
 
@@ -597,9 +643,9 @@ function clearSelection(lat, lon, label){
   document.getElementById('periode').textContent = '—';
   document.getElementById('chart').innerHTML = '';
   document.getElementById('cuveChart').innerHTML = '';
-  ['annuel','seche','humide','volReco','covReco','covMoyen','covSeche','ctxRecup','ctxBesoin','ctxPeriode']
+  ['annuel','seche','humide','volReco','covReco','covMoyen','covSeche','ctxRecup','ctxBesoin','ctxBesoinDom','ctxPeriode']
     .forEach(id => { const el = document.getElementById(id); if(el) el.textContent = '—'; });
-  ['cuveSecure','cuveLimite','cVolPersoRes','ctxGainRow','ctxNetRow']
+  ['cuveSecure','cuveLimite','cVolPersoRes','ctxGainRow','ctxNetRow','ctxBesoinDomRow']
     .forEach(id => { const el = document.getElementById(id); if(el) el.hidden = true; });
   if(marker && map){ map.removeLayer(marker); marker = null; }
 }
@@ -717,6 +763,19 @@ const PLANTE_OPTIONS = [
   ['agrumes',     'Agrumes / oliviers productifs (irrigués)']
 ];
 
+// --- Usage domestique interieur (WC + lave-linge) ---
+// Demande CONSTANTE toute l'annee, independante de la pluie/saison (contrairement a l'arrosage).
+// Encadree par le decret 2024-796 / arrete du 12 juillet 2024 (lave-linge sous declaration + A+).
+const JOURS_MOIS = [31,28,31,30,31,30,31,31,30,31,30,31];
+const DOMESTIQUE = {                       // moyennes francaises L/personne/jour (editables UI)
+  wc:         { defautLpj: 25 },
+  lave_linge: { defautLpj: 17 }
+};
+// Besoin domestique mensuel (m3) : occupants x L/pers/jour x jours du mois / 1000.
+function demandeDomestique(occupants, lpjTotal){
+  return JOURS_MOIS.map(j => Math.max(0,occupants) * Math.max(0,lpjTotal) * j / 1000);
+}
+
 // Simulation mensuelle d'une cuve de capacite cap (m3), en regime etabli.
 // collecte (trop-plein perdu) -> on sert le besoin du mois dans la limite du stock.
 function simulCuve(cap, apport, besoin){
@@ -815,6 +874,7 @@ function renderCuve(){
     setTxt('ctxRecup','—'); setTxt('ctxBesoin','—'); setTxt('ctxPeriode','—');
     document.getElementById('cuveSecure').hidden = true;
     document.getElementById('cuveLimite').hidden = true;
+    document.getElementById('ctxBesoinDomRow').hidden = true;
     document.getElementById('cuveChart').innerHTML = '';
     return;
   }
@@ -822,6 +882,12 @@ function renderCuve(){
   const coef   = +document.getElementById('cMat').value;
   // liste des cultures saisies : { surf (m2), kc[12] } -- une zone par ligne
   const zones = lireZones();
+  // usage domestique : besoin mensuel CONSTANT (independant de la pluie), ajoute au besoin jardin
+  const domOn  = document.getElementById('cDomOn').checked;
+  const occup  = +document.getElementById('cOccup').value || 0;
+  const lpjDom = (document.getElementById('cWcOn').checked ? (+document.getElementById('cWcLpj').value || 0) : 0)
+               + (document.getElementById('cLlOn').checked ? (+document.getElementById('cLlLpj').value || 0) : 0);
+  const dom = domOn ? demandeDomestique(occup, lpjDom) : new Array(12).fill(0);
   const et0 = f.et0_moy, moy = f.moy;
   // Annee seche = forme saisonniere moyenne mise a l'echelle du cumul annuel sec REEL
   // (et NON la somme des p10 mensuels, qui sur-estimerait la secheresse -- piege §10.7).
@@ -844,7 +910,7 @@ function renderCuve(){
         const ke = MOIS_ETE.includes(m) ? (z.ksEte || 1) : 1;
         bm += Math.max(0, e0*z.kc[m] - pl) * ke * z.surf / 1000;  // mm a arroser × surface
       }
-      besoin.push(bm);
+      besoin.push(bm + dom[m]);   // + demande domestique constante (identique annee normale/seche)
     }
     return {apport, besoin};
   }
@@ -856,14 +922,22 @@ function renderCuve(){
   const covSec  = simulCuve(reco, sSec.apport, sSec.besoin).couverture; // couverture de CETTE cuve en annee seche
 
   // entete : volume conseille + couverture annee normale
+  // libelles adaptes : "arrosage" seul, ou "besoins" (eau) quand l'usage domestique est actif
+  const domTotal = dom.reduce((a,b)=>a+b,0);
+  const motBesoin = domTotal > 0 ? 'des besoins' : 'de l’arrosage';
   document.getElementById('volReco').innerHTML = fmtVol(reco)+' <small>m³</small>';
   setTxt('covReco', covNorm >= 0.985
-    ? 'couvre tout l’arrosage une année normale'
-    : 'couvre '+Math.round(covNorm*100)+'% de l’arrosage une année normale');
+    ? 'couvre tout'+(domTotal>0?' le besoin':' l’arrosage')+' une année normale'
+    : 'couvre '+Math.round(covNorm*100)+'% '+motBesoin+' une année normale');
   setTxt('covMoyen', Math.round(covNorm*100)+' %');
   setTxt('covSeche', Math.round(covSec*100)+' %');
+  setTxt('covMoyenLbl', motBesoin+' couvert'+(domTotal>0?'s':''));
+  setTxt('covSecheLbl', motBesoin+' couvert'+(domTotal>0?'s':''));
   setTxt('ctxRecup',  fmtM3(sMoy.apport.reduce((a,b)=>a+b,0)));
-  setTxt('ctxBesoin', fmtM3(sMoy.besoin.reduce((a,b)=>a+b,0)));
+  setTxt('ctxBesoin', fmtM3(sMoy.besoin.reduce((a,b)=>a+b,0) - domTotal));  // jardin seul
+  setTxt('ctxBesoinDom', fmtM3(domTotal));
+  document.getElementById('ctxBesoinDomRow').hidden = !(domTotal > 0);
+  document.getElementById('cuveNoteDom').hidden     = !(domTotal > 0);
   setTxt('ctxPeriode', currentWin==='ref' ? '1995-2020' : '15 dernières années');
 
   // gain financier : volume couvert × prix du m³
@@ -989,9 +1063,18 @@ document.getElementById('tabs').addEventListener('click', e=>{
   if(t==='cuve') renderCuve();
 });
 // recalcul en direct quand on modifie une entree
-['cToit','cMat','cVolPerso','cPrixM3'].forEach(id=>{
+['cToit','cMat','cVolPerso','cPrixM3','cOccup','cWcLpj','cLlLpj'].forEach(id=>{
   document.getElementById(id).addEventListener('input', renderCuve);
 });
+// usage domestique : afficher/masquer les champs et la mention legale lave-linge, puis recalculer
+function syncDom(){
+  document.getElementById('cDomFields').hidden  = !document.getElementById('cDomOn').checked;
+  document.getElementById('cDomLegalLl').hidden = !document.getElementById('cLlOn').checked;
+}
+['cDomOn','cWcOn','cLlOn'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', ()=>{ syncDom(); renderCuve(); });
+});
+syncDom();
 document.getElementById('cVolReset').addEventListener('click', ()=>{
   document.getElementById('cVolPerso').value = '';
   renderCuve();

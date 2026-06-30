@@ -20,11 +20,13 @@ const src = [
   extract(/const KC = \{[\s\S]*?\n\};/, 'KC'),
   extract(/const KS_ETE = \{[\s\S]*?\n\};/, 'KS_ETE'),
   extract(/const MOIS_ETE = \[.*?\];/, 'MOIS_ETE'),
+  extract(/const JOURS_MOIS = \[.*?\];/, 'JOURS_MOIS'),
+  extract(/function demandeDomestique\([\s\S]*?\n\}/, 'demandeDomestique'),
   extract(/function simulCuve\([\s\S]*?\n\}/, 'simulCuve'),
   extract(/function dimensionne\([\s\S]*?\n\}/, 'dimensionne'),
 ].join('\n');
-const { KC, KS_ETE, MOIS_ETE, simulCuve, dimensionne } =
-  new Function(src + '\nreturn { KC, KS_ETE, MOIS_ETE, simulCuve, dimensionne };')();
+const { KC, KS_ETE, MOIS_ETE, JOURS_MOIS, demandeDomestique, simulCuve, dimensionne } =
+  new Function(src + '\nreturn { KC, KS_ETE, MOIS_ETE, JOURS_MOIS, demandeDomestique, simulCuve, dimensionne };')();
 
 // même formule que scen() dans l'app (spécification du besoin par culture)
 function besoinMensuel(et0, pluie, zones){
@@ -88,6 +90,45 @@ test('tables KC/KS_ETE complètes et bornées', () => {
     assert.ok(type in KS_ETE, type + ' sans KS_ETE');
     assert.ok(KS_ETE[type] > 0 && KS_ETE[type] <= 1, type);
   }
+});
+
+// ── usage domestique (WC + lave-linge) ────────────────────────────────
+test('demandeDomestique : constante, prorata des jours, échelle occupants', () => {
+  const occup = 4, lpj = 42;              // 25 (WC) + 17 (lave-linge) L/pers/jour
+  const d = demandeDomestique(occup, lpj);
+  assert.equal(d.length, 12);
+  // somme annuelle ≈ occupants × lpj × 365 / 1000
+  const ann = d.reduce((a,b)=>a+b, 0);
+  assert.ok(Math.abs(ann - occup*lpj*365/1000) < 1e-9, 'annuel=' + ann.toFixed(2));
+  // chaque mois = prorata des jours (janvier 31 j > février 28 j)
+  assert.ok(d[0] > d[1], 'janvier doit dépasser février');
+  assert.ok(Math.abs(d[0] - occup*lpj*31/1000) < 1e-9);
+  // proportionnel au nb d'occupants
+  const d8 = demandeDomestique(8, lpj);
+  assert.ok(Math.abs(d8[0] - 2*d[0]) < 1e-9, 'doublé pour 2× occupants');
+  // entrées négatives bornées à 0
+  assert.equal(demandeDomestique(-3, lpj)[0], 0);
+});
+
+test('cuve mixte : le domestique augmente reco ET besoin vs jardin seul', () => {
+  const data = JSON.parse(readFileSync(join(root, 'docs/normales_france.json'), 'utf8'));
+  const f = data['11320_16810'].fenetres.ref_1995_2020;
+  const zones = [{type:'gazon_chaud', surf:50}];
+  const apport = apportToit(f.moy, 100, 0.9);
+  const besoinJardin = besoinMensuel(f.et0_moy, f.moy, zones);
+  const dom = demandeDomestique(4, 42);                 // 4 pers, WC + lave-linge
+  const besoinMixte = besoinJardin.map((b,i) => b + dom[i]);
+  const rJardin = dimensionne(apport, besoinJardin);
+  const rMixte  = dimensionne(apport, besoinMixte);
+  // le besoin domestique constant s'ajoute -> reco mixte >= reco jardin seul
+  assert.ok(rMixte.vol >= rJardin.vol, 'reco mixte ' + rMixte.vol.toFixed(1) +
+            ' < jardin ' + rJardin.vol.toFixed(1));
+  // le besoin annuel mixte dépasse le jardin seul d'environ la demande domestique
+  const annJardin = besoinJardin.reduce((a,b)=>a+b,0);
+  const annMixte  = besoinMixte.reduce((a,b)=>a+b,0);
+  assert.ok(Math.abs((annMixte - annJardin) - dom.reduce((a,b)=>a+b,0)) < 1e-9);
+  console.log('     (reco jardin ' + rJardin.vol.toFixed(1) + ' m³ → mixte ' +
+              rMixte.vol.toFixed(1) + ' m³, couverture ' + Math.round(rMixte.couverture*100) + ' %)');
 });
 
 // ── bout-en-bout sur les données réelles d'Ajaccio ────────────────────
