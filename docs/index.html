@@ -359,7 +359,7 @@
         </div>
       </div>
       <div class="field">
-        <label>Surfaces arrosées, par culture (m²)</label>
+        <label>Surfaces arrosées, par culture (m²) — optionnel</label>
         <div id="cZones"></div>
         <button id="cAddZone" type="button" class="add-zone">＋ Ajouter une culture</button>
       </div>
@@ -1045,7 +1045,8 @@ zonesBox.addEventListener('input', renderCuve);
 zonesBox.addEventListener('change', renderCuve);
 zonesBox.addEventListener('click', e=>{
   const del = e.target.closest('.z-del'); if(!del) return;
-  if(zonesBox.querySelectorAll('.zone-row').length > 1) del.closest('.zone-row').remove();
+  // on peut tout supprimer (0 culture) : cas usage 100 % domestique
+  del.closest('.zone-row').remove();
   renderCuve();
 });
 document.getElementById('cAddZone').addEventListener('click', ()=>{
