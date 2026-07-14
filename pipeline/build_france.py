@@ -202,11 +202,12 @@ for i in range(N):
         if all(a in cumuls[m] for m in range(1, 13)):
             cumul_annuel[a] = sum(cumuls[m][a] for m in range(1, 13))
     toutes = sorted(annees_presentes)
+    annees_completes = sorted(cumul_annuel)
     ref = [a for a in toutes if REF_MIN <= a <= REF_MAX]
     # Fenetre recente : uniquement des annees COMPLETES (12 mois). Sinon la derniere
     # annee partielle (ex. 2026 arretee en avril) n'alimente que janvier-avril
     # -> fenetre non homogene entre les mois, et n_annees != libelle "15 dern. ans".
-    recentes = sorted(cumul_annuel)[-RECENTE_N:]
+    recentes = annees_completes[-RECENTE_N:]
     tendance = []
     for m in range(1, 13):
         pts = [(a, cumuls[m][a]) for a in toutes if a in cumuls[m]]
@@ -215,7 +216,7 @@ for i in range(N):
     resultat["%d_%d" % (mk["lambx"], mk["lamby"])] = {
         "lambx": mk["lambx"], "lamby": mk["lamby"],
         "lat": mk["lat"], "lon": mk["lon"], "altitude_m": None,
-        "annees_disponibles": [toutes[0], toutes[-1]],
+        "annees_disponibles": [toutes[0], annees_completes[-1] if annees_completes else toutes[-1]],
         "fenetres": {
             "ref_1995_2020": {**window_stats(cumuls, ref), **annual_stats(cumul_annuel, ref),
                               "et0_moy": window_etp(cumuls_etp, ref)},

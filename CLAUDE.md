@@ -29,7 +29,7 @@ tests/             Tests JS du module cuve (node tests/test_cuve.mjs, zéro dép
 docs/              App cliente PWA (GitHub Pages)
   index.html       App complète (HTML/JS, pas de framework)
   normales_france.json  Jeu de données (~13 Mo, 9892 mailles)
-  sw.js            Service worker (network-first, cache offline)
+  sw.js            Service worker (cache données séparé, app network-first, offline)
   manifest.webmanifest  Identité PWA
   icon-192/512.png Icônes (goutte d'eau bleue)
   vendor/leaflet/  Leaflet 1.9.4 embarqué localement
@@ -80,7 +80,10 @@ Par maille (clé = `"LAMBX_LAMBY"`) :
 - **Deux onglets** : « Pluie » (histogramme des cumuls mensuels) et « Cuve » (dimensionnement RWH).
 - **findMaille** : plus proche voisin haversine, **privilégie les mailles avec commune** (évite les carrés maritimes près des côtes).
 - **Commune position** : appel `geo.api.gouv.fr/communes?lat=&lon=` au clic (en ligne) ; fallback offline = commune du carré embarquée.
-- **Service worker** : network-first. Incrémenter `const CACHE = "pluvio-rwh-vN"` à chaque mise à jour pour forcer le rechargement (actuellement **v27**).
+- **Service worker** : deux caches. `APP_CACHE` est network-first et s'incrémente à chaque
+  mise à jour de l'interface (actuellement **v29**). `DATA_CACHE` est cache-first et ne
+  s'incrémente que lorsque `normales_france.json` est régénéré (actuellement **v1**) ; cela
+  évite de retélécharger ~13 Mo à chaque ouverture ou simple correction de code.
 - **Histogramme pluie** : échelle verticale **commune** aux 2 fenêtres (ref + récente) pour comparer sans illusion d'optique.
 - **Aide iOS** : bandeau auto si iPhone/iPad non installé. Détection = `/iP(hone|ad|od)/.test(UA) && 'standalone' in navigator` (double garde, sinon faux positifs Android). Fermeture mémorisée en `localStorage` (`iosHintDismissed`). ⚠️ Piège résolu : `.ioshint` avait `display:flex` qui écrasait l'attribut `hidden` → bandeau impossible à masquer ; corrigé par `.ioshint[hidden]{display:none}`. iPad récent non détecté (Safari se déclare « Macintosh »).
 - **Vérifier la version** : étiquette footer affiche `"N carrés · M communes"` ; 0 communes = ancien cache.
@@ -131,7 +134,7 @@ Clone de Pluvio couvrant **l'Italie**. Même app, même module cuve, même méth
 .venv/bin/python pipeline/build_italie_cds.py --selftest   # valide la formule ET0 FAO-56 (sans CDS)
 .venv/bin/python pipeline/build_italie_cds.py --download    # télécharge le NetCDF ERA5-Land mensuel (~44 Mo, file d'attente CDS)
 .venv/bin/python pipeline/build_italie_cds.py               # agrège -> docs/normales_italie.json (3 235 points)
-# Incrémenter CACHE dans docs/sw.js, puis commit/push
+# Incrémenter DATA_CACHE dans docs/sw.js, puis commit/push
 ```
 Le polygone Italie (`data/raw/italie_regions.geojson`, openpolis/geojson-italy) est téléchargé une fois par `build_italie.py` et réutilisé par la voie CDS.
 
@@ -142,8 +145,8 @@ Cas simple (1er build complet) :
 python pipeline/build_france.py           # streaming ~10-15 min -> data/out/normales_france.json (pluie + et0_moy)
 python pipeline/add_communes.py           # ~2 min -> ajoute commune/departement/insee
 cp data/out/normales_france.json docs/normales_france.json
-node tests/test_cuve.mjs                  # vérifie le module cuve (8 tests, dont Ajaccio bout en bout)
-# Incrémenter CACHE dans docs/sw.js
+node tests/test_cuve.mjs                  # vérifie le module cuve (15 tests, dont Ajaccio bout en bout)
+# Incrémenter DATA_CACHE dans docs/sw.js
 git add docs/ && git commit -m "Regénération données SAFRAN YYYY" && git push
 ```
 
@@ -151,7 +154,7 @@ Cas « ajouter/rafraîchir l'ET0 sans re-solliciter geo.api.gouv.fr » (docs/ a 
 ```bash
 python pipeline/build_france.py           # produit data/out/ avec et0_moy (sans communes)
 python pipeline/merge_et0.py              # fusionne et0_moy[12] DANS docs/ en préservant les communes
-# Incrémenter CACHE dans docs/sw.js, puis commit/push
+# Incrémenter DATA_CACHE dans docs/sw.js, puis commit/push
 ```
 
 ## Évolutions prévues (hors V1, §9 du cahier des charges)

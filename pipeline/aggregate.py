@@ -107,7 +107,8 @@ def window_stats(cumuls_par_mois, annees_cibles):
 def annual_stats(cumul_annuel, annees_cibles):
     serie = [cumul_annuel[a] for a in annees_cibles if a in cumul_annuel]
     if len(serie) < MIN_ANNEES:
-        return {"annuel_moyen": None, "annee_seche_p10": None, "n_annees": len(serie)}
+        return {"annuel_moyen": None, "annee_seche_p10": None,
+                "annee_humide_p90": None, "n_annees": len(serie)}
     return {
         "annuel_moyen": round(mean(serie)),
         "annee_seche_p10": round(quantile(serie, 0.10)),   # P10 ANNUEL reel
@@ -135,8 +136,9 @@ for maille, mdata in monthly.items():
     toutes = sorted(annees_presentes)
     if not toutes:
         continue
+    annees_completes = sorted(cumul_annuel)
     ref = [a for a in toutes if REF_MIN <= a <= REF_MAX]
-    recentes = toutes[-RECENTE_N:]
+    recentes = annees_completes[-RECENTE_N:]
 
     # tendance mensuelle (mm/decennie) sur l'historique complet
     tendance = []
@@ -150,7 +152,7 @@ for maille, mdata in monthly.items():
         "lambx": info.get("lambx"), "lamby": info.get("lamby"),
         "lat": info.get("lat"), "lon": info.get("lon"),
         "altitude_m": None,  # a renseigner ulterieurement
-        "annees_disponibles": [toutes[0], toutes[-1]],
+        "annees_disponibles": [toutes[0], annees_completes[-1] if annees_completes else toutes[-1]],
         "fenetres": {
             "historique": {**window_stats(cumuls, toutes), **annual_stats(cumul_annuel, toutes)},
             "ref_1995_2020": {**window_stats(cumuls, ref), **annual_stats(cumul_annuel, ref)},
