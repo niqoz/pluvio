@@ -81,12 +81,14 @@ Par maille (clé = `"LAMBX_LAMBY"`) :
 - **findMaille** : plus proche voisin haversine, **privilégie les mailles avec commune** (évite les carrés maritimes près des côtes).
 - **Commune position** : appel `geo.api.gouv.fr/communes?lat=&lon=` au clic (en ligne) ; fallback offline = commune du carré embarquée.
 - **Service worker** : deux caches. `APP_CACHE` est network-first et s'incrémente à chaque
-  mise à jour de l'interface (actuellement **v29**). `DATA_CACHE` est cache-first et ne
+  mise à jour de l'interface (actuellement **v30**). `DATA_CACHE` est cache-first et ne
   s'incrémente que lorsque `normales_france.json` est régénéré (actuellement **v1**) ; cela
   évite de retélécharger ~13 Mo à chaque ouverture ou simple correction de code.
 - **Histogramme pluie** : échelle verticale **commune** aux 2 fenêtres (ref + récente) pour comparer sans illusion d'optique.
 - **Aide iOS** : bandeau auto si iPhone/iPad non installé. Détection = `/iP(hone|ad|od)/.test(UA) && 'standalone' in navigator` (double garde, sinon faux positifs Android). Fermeture mémorisée en `localStorage` (`iosHintDismissed`). ⚠️ Piège résolu : `.ioshint` avait `display:flex` qui écrasait l'attribut `hidden` → bandeau impossible à masquer ; corrigé par `.ioshint[hidden]{display:none}`. iPad récent non détecté (Safari se déclare « Macintosh »).
-- **Vérifier la version** : étiquette footer affiche `"N carrés · M communes"` ; 0 communes = ancien cache.
+- **Vérifier la version** : le footer affiche explicitement `"Version application 30 · données 1"`
+  ainsi que `"N carrés · M communes"` ; maintenir ces numéros alignés avec `APP_CACHE`
+  et `DATA_CACHE`. Zéro commune indique un ancien jeu de données.
 
 ### Onglet Cuve (module dimensionnement)
 

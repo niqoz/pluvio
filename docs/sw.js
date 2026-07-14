@@ -2,7 +2,7 @@
    Deux caches separes evitent de retelecharger les 13 Mo de donnees a chaque
    evolution de l'interface. Incrementer APP_CACHE pour le code, DATA_CACHE
    uniquement lors d'une regeneration de normales_france.json. */
-const APP_CACHE = "pluvio-rwh-v29";
+const APP_CACHE = "pluvio-rwh-v30";
 const DATA_CACHE = "pluvio-rwh-data-v1";
 const APP_ASSETS = [
   "./",
